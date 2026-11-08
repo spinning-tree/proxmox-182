@@ -8,7 +8,6 @@
 - **NETLOGON**: es un recurso compartido dentro de SYSVOL donde van los scripts de inicio de sesión, y también el servicio que autentica a usuarios y equipos y registra en DNS los registros del DC.
 - **KDC (Key Distribution Center)**: el servicio de Kerberos. Cuando inicias sesión, te da el “ticket” que demuestra quién eres para acceder a recursos sin volver a meter la contraseña.
 - **Kerberos**: el protocolo de autenticación de AD. Es sensible a la hora: si los relojes difieren más de 5 minutos, falla.
-- **FSMO**: cinco tareas que solo puede hacer un DC a la vez para evitar conflictos. La que más vas a oír es el **emulador PDC**, que es la fuente de hora del dominio, gestiona los cambios de contraseña y es el DC por defecto para editar GPO.
 - **Registros SRV**: entradas DNS que dicen “el servicio X está en tal servidor y puerto”. Es como los clientes encuentran el DC.
 - **GC (Catálogo Global)**: copia resumida de todos los objetos del bosque, para búsquedas rápidas y para el inicio de sesión.
 - **DFSR**: el mecanismo que replica SYSVOL entre DCs.

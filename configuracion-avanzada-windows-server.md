@@ -2,12 +2,24 @@
 
 > Previamente es necesario [configurar windows server](configuracion-basica-windows-server.md)
 
+## glosario básico
+
+- **AGDLP** es la convención de Microsoft para dar acceso a recursos: los usuarios (Accounts) se meten en grupos **globales** que representan quiénes son (G_Economía), esos grupos se meten en grupos **locales de dominio**, uno por recurso y nivel de acceso (DL_Economía_Modificar, DL_Economía_Lectura), y los **permisos** se dan solo a los DL. Así, tras configurar los permisos una vez, las altas, bajas y cambios se gestionan moviendo usuarios entre grupos, sin volver a tocar las ACLs.
+- **SMB (permisos de recurso compartido)**: solo se aplican al acceder por la red (\servidor\carpeta). Hay tres niveles: Lectura, Cambiar y Control total. Se configuran en Propiedades → Compartir → Uso compartido avanzado → Permisos. La práctica habitual es dejarlos abiertos (Usuarios autenticados → Control total) y controlar el acceso en NTFS.
+- **NTFS (permisos del sistema de archivos)**: se aplican siempre, tanto por red como en local. Son granulares (Lectura, Lectura y ejecución, Escritura, Modificar, Control total) y se heredan de la carpeta padre a sus subcarpetas y archivos. Se configuran en Propiedades → Seguridad, y se asignan a los grupos DL_.
+- **Access-Based Enumeration (ABE)**: cada usuario solo ve las carpetas y archivos a los que tiene acceso. Se activa en el recurso compartido. ABE solo oculta al acceder por la red, porque es una función de SMB. 
+- **GPP (Group Policy Preferences)**: sección de una GPO que configura ajustes del día a día, como unidades de red, impresoras, accesos directos o claves de registro. A diferencia de las directivas, no se imponen: el usuario puede cambiarlos. Permiten _item-level targeting_, es decir, aplicar cada elemento solo si se cumple una condición (grupo, OU, equipo, IP…).
 ## gpos
 
-Las GPO's son paquetes de configuraciones que se definen en el DC y se almacenan en la carpeta SYSVOL que los clientes descargan. Se mapean a una OU (afecta a todos los equipos/usuarios de esa OU)
+Las GPO's son paquetes de configuraciones que se definen en el DC y se almacenan en la carpeta SYSVOL que los clientes descargan. Se linkean a una OU (afecta a todos los equipos/usuarios de esa OU)
 
 > Ojo: clientes aquí se refiere tanto a pcs como usuarios: la gpos de equipo se aplica al arancar el pc, la de usuario, cuando inicia sesión). También se aplican cada 90 minutos (aunque puede forzarse con `gpupdate /force`)
 
+Otra cosa:
+
+> En las GPOS, te encontrarás dos secciones:
+> - **Directivas**: se imponen. El usuario ve la opción en gris y no puede cambiarla, y si quitas la GPO, el ajuste desaparece.
+>- **Preferencias**: escriben el ajuste como si lo hubiera configurado el usuario, así que puede cambiarlo. Por defecto se vuelven a aplicar en cada actualización de directivas, salvo que marques “Aplicar una vez”. Si quitas la GPO, el ajuste se queda, salvo que marques “Quitar este elemento cuando ya no se aplique”.
 ### gpos de usuarios
 
 1. Abrir **gpmc.msc** en DC -> OU del dominio -> click derecho en Usuarios -> _Create a GPO in this domain, and Link it here_ → nombrarla
@@ -114,4 +126,99 @@ Generalmente, las GPOs de usuario dependen de la OU del usuario. Con loopback qu
 ![](https://imgur.com/bH6iVqz.png)
 
 # SMB + NTFS
+
+Microsoft utiliza una convención para dar acceso a recursos llamada AGDLP ((Accounts → Global → Domain Local → Permissions). Básicamente defines Grupos Globales (agupan usuarios por departamento, ej. Economía) y Grupos locales de dominio (DL) por cada recurso y nivel de acceso (quién puede hacer qué sobre qué), ejemplo: DL_Economía_Modificar, DL_Economía_Lectura, DL_Impresora_Imprimir, etc.
+
+> Los usuarios van en los G_, los G_ van dentro de los DL_. Así, los permisos NTFS se dan solo a los DL_. **¿Por qué?** Porque tras configurar los permisos una vez, las altas, bajas y cambios se gestionan solo moviendo usuarios entre grupos.
+
+Para este ejemplo, crearemos la siguiente estructura:
+
+```
+LAB
+├── Equipos
+│   ├── PC-01
+│   └── PC-02
+├── Servidores        
+├── Usuarios
+│   ├── Economía      → thiago, riri
+│   └── Operaciones   → chachi
+└── Grupos
+    ├── G_Economía             (Global)       → thiago, riri
+    ├── G_Operaciones          (Global)       → chachi
+    ├── DL_Economía_Modificar  (Dominio local) → G_Economía
+    └── DL_Economía_Lectura    (Dominio local) → G_Operaciones
+```
+
+![](https://imgur.com/0UPSLBl.png)
+
+1. Creamos carpeta `C:\DPTOS\Economia` -> Propiedades de `Economia` → **Sharing** → **Advanced Sharing**.
+
+> El botón Share… es un asistente simplificado que también toca los permisos NTFS sin avisarte claramente, y así no ves qué capa estás configurando.
+
+2. Marcar **Share this folder**.
+3. **Permissions** → quitar **Everyone** → **Add** → **Authenticated Users** → marcar **Full Control** -> Aceptar todo.
+
+![](https://imgur.com/xHOnVLr.png)
+
+> la práctica habitual es dejar SMB abierto (Usuarios autenticados con Control total o Cambiar) y hacer todo el control fino en NTFS, con los grupos DL_
+
+4. Luego Propiedades de `Economia` → **Security** → **Advanced** -> **Disable inheritance** → **Convert inherited permissions into explicit permissions**. 
+
+> Esto permite conservar los permisos actuales como base, pero ya no dependen de `C:\`.
+
+
+5. En la lista, quitar **Users** y dejar **SYSTEM**, **Administrators** y **CREATOR OWNER**. Luego **Add** → **Select a principal** → **DL_Economia_Modificar** → marcar **Modify** → Aceptar y finalmente **Add** → **DL_Economia_Leer** → dejar **Read & execute** → Aplicar y Aceptar.
+
+![](https://imgur.com/fA2k7Rc.png)
+
+## abe
+Access-Based Enumeration (ABE) permite que los usuarios solo vean la carpeta y archivos a los que tienen acceso. Se activa en el recurso compartido, no en NTFS:
+
+1. **Server Manager** → **File and Storage Services** → **Shares**.
+2. Clic derecho en **Economia** → **Properties** → **Settings**.
+3. Marcar **Enable access-based enumeration** → Aceptar.
+
+> En el ejemplo anterior, dentro de la carpeta compartida de Economía, creamos una subcarpeta `Presupuesto 2026` a la que deshabilitamos herencia y eliminamos el DL_Leer. De modo que los usuarios que no eran del grupo economía no podían acceder
+
+![](https://imgur.com/QXV8al5.png)
+
+## gpp
+
+El siguiente escenario es crear una gpp para que cada usuario tenga una unidad de red mapeada a la carpeta de su departamento, además de una segunda unidad de red **recursos** donde todos pueden acceder, pero solo rh puede modificar. Para este ejemplo, hemos creado la siguiente estructura:
+
+```
+C:\DPTOS → contenedor local, no compartido 
+├── Economia → \\DC1\Economia (ABE) 
+├── RH → \\DC1\RH (ABE) 
+└── OPS → \\DC1\OPS (ABE) 
+C:\RECURSOS → \\DC1\RECURSOS (ABE)
+```
+
+| Grupo DL_                | Permiso NTFS | Recurso  | Miembros      |
+| ------------------------ | ------------ | -------- | ------------- |
+| DL_Economia_Modificar    | Modificar    | Economia | G_Economia    |
+| DL_Operaciones_Modificar | Modificar    | OPS      | G_Operaciones |
+| DL_RH_Modificar          | Modificar    | RH       | G_RH          |
+| DL_Recursos_Modificar    | Modificar    | RECURSOS | G_RH          |
+| DL_Recursos_Leer         | Lectura      | RECURSOS | Domain Users  |
+
+1. **GPMC** → clic derecho en la OU **Usuarios** → **Create a GPO in this domain, and Link it here** → nombre: `U_Unidades_Red`.
+2. Clic derecho en la GPO → **Edit** → **User Configuration** → **Preferences** → **Windows Settings** → **Drive Maps**.
+3. Clic derecho → **New** → **Mapped Drive**:
+    - **Action**: Update
+    - **Location**: `\\DC1\Economia`
+    - **Reconnect**: marcado
+    - **Label as**: Economia
+    - **Drive Letter**: Use → **S:**
+
+![](https://imgur.com/1Cji1ng.png)
+
+4. Pestaña **Common** → marcar **Item-level targeting** → **Targeting…** → **New Item** → **Security Group** → los tres puntos -> **G_Economia** -> Check → OK.
+
+![](https://imgur.com/jL5hCYA.png)
+
+5. Repetir los pasos 3 y 4 para `\\DC1\RH` (S:, G_RH) y `\\DC1\OPS` (S:, G_Operaciones).
+6. Una última unidad para `\\DC1\RECURSOS`, letra **R:**, **sin** item-level targeting.
+
+
 

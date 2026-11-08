@@ -62,7 +62,6 @@
 
 | Comando                                            | Qué hace                                      |
 | -------------------------------------------------- | --------------------------------------------- |
-| **cat** */etc/pve/qemu-server/vmid.conf*           | Config de cada VM                             |
 | **qm list**                                        | Lista VMs con estado                          |
 | **qm start** *vmid*                                | Arrancar                                      |
 | **qm shutdown** *vmid*                             | Apagado ordenado (ACPI)                       |
@@ -79,6 +78,7 @@
 | **qm destroy** *vmid* **--purge**                  | Borrar VM y sus discos                        |
 | **qm unlock** *vmid*                               | Quitar bloqueo (tras backup/snapshot fallido) |
 | **qm terminal** *vmid*                             | Consola serie (si está configurada)           |
+| **cat** */etc/pve/qemu-server/vmid.conf*           | Config de cada VM                             |
 ## snapshots
 
 | Comando                                   | Qué hace             |
@@ -111,6 +111,7 @@
 | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | **ping** [ **-c** _n_ ] _ip_                                                              | Prueba conectividad IP (ICMP); **-c** limita el número de paquetes                       |
 | **traceroute** _ip_                                                                       | Muestra los saltos hasta el destino                                                      |
+| { **nslookup** \| **dig** } _nombre_                                                      | Resuelve un nombre (útil para probar el DNS del DC); **dig** da más detalle              |
 | **nc -vz** _ip_ _puerto_                                                                  | Comprueba si un puerto TCP remoto está abierto                                           |
 | **arp -a**                                                                                | Tabla ARP: IPs de la LAN y sus MAC                                                       |
 | **lsof -iTCP -sTCP:LISTEN -n -P**                                                         | Puertos que están escuchando en el propio Mac                                            |
@@ -122,7 +123,6 @@
 | **sudo route -n delete -net** _red/prefijo_                                               | Borra una ruta temporal                                                                  |
 | **networksetup -getadditionalroutes** _"servicio"_                                        | Muestra las rutas **persistentes** guardadas para ese servicio                           |
 | **sudo networksetup -setadditionalroutes** _"servicio"_ [ _red_ _máscara_ _gateway_ ] ... | Define rutas persistentes. **Sustituye** las existentes; sin argumentos, las borra todas |
-| { **nslookup** \| **dig** } _nombre_                                                      | Resuelve un nombre (útil para probar el DNS del DC); **dig** da más detalle              |
 | **networksetup -getdnsservers** _"servicio"_                                              | Muestra los DNS configurados en el servicio                                              |
 | **sudo networksetup -setdnsservers** _"servicio"_ { _ip_dns_ ... \| **empty** }           | Cambia los DNS; **empty** vuelve a los de DHCP                                           |
 | **sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder**                         | Vacía la caché DNS                                                                       |
