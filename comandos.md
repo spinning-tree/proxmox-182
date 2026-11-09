@@ -1,4 +1,38 @@
 # windows
+# básicos
+
+| Comando                                                                                      | Para qué sirve                                                                  |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **Start-Process** _programa_ **-Verb RunAs**                                                 | Lanza el programa elevado. Si no eres admin, el UAC pide credenciales           |
+| **Start-Process** _programa_ **-Credential** _dominio_\_usuario_                             | Lanza el programa como otro usuario, sin elevar (no se combina con -Verb RunAs) |
+| **runas /user:**_dominio_\_usuario_ _programa_                                               | Lo mismo con el clásico de CMD                                                  |
+| **whoami** [**/groups** \| **/priv**]                                                        | Muestra quién eres, tus grupos y si estás elevado (nivel obligatorio alto)      |
+| **hostname**                                                                                 | Nombre del equipo                                                               |
+| **winver**                                                                                   | Versión y compilación de Windows en ventana                                     |
+| **systeminfo**                                                                               | Resumen del equipo: SO, dominio, arranque, parches, RAM                         |
+| **msinfo32**                                                                                 | Información del sistema detallada en ventana                                    |
+| **Get-HotFix**                                                                               | Actualizaciones instaladas                                                      |
+| **gpresult** {**/r** \| **/h** _archivo_.html}                                               | Qué GPOs se aplican al usuario y al equipo                                      |
+| **Get-Service** [_nombre_]                                                                   | Estado de los servicios                                                         |
+| {**Start-Service** \| **Stop-Service** \| **Restart-Service**} _nombre_                      | Arranca, para o reinicia un servicio                                            |
+| **Get-Process** [_nombre_]                                                                   | Procesos en ejecución (en CMD: **tasklist**)                                    |
+| **Stop-Process -Name** _proceso_ [**-Force**]                                                | Mata un proceso (en CMD: **taskkill /im** _proceso_.exe [**/f**])               |
+| **shutdown** {**/r** \| **/s**} **/t** _segundos_ [**/f**]                                   | Reinicia o apaga el equipo                                                      |
+| **Restart-Computer** [**-ComputerName** _equipo_] [**-Force**]                               | Reinicia el equipo local o uno remoto                                           |
+| **Get-WinEvent -LogName** {**System** \| **Application** \| **Security**} **-MaxEvents** _n_ | Últimos eventos de un registro                                                  |
+| **sfc /scannow**                                                                             | Comprueba y repara archivos del sistema                                         |
+| **DISM /Online /Cleanup-Image /RestoreHealth**                                               | Repara la imagen de Windows (lánzalo antes que sfc si sfc falla)                |
+| **chkdsk** _unidad_: [**/f**]                                                                | Comprueba y repara el sistema de archivos                                       |
+| **net user** _usuario_ [**/domain**]                                                         | Datos de una cuenta: bloqueo, caducidad de la contraseña, grupos                |
+| **net accounts** [**/domain**]                                                               | Política de contraseñas y bloqueo vigente                                       |
+| **Get-LocalGroupMember** _grupo_                                                             | Miembros de un grupo local (en CMD: **net localgroup** _grupo_)                 |
+| **Get-WindowsCapability -Online -Name** _patrón_                                             | Estado de las características a petición (RSAT, etc.)                           |
+| **Add-WindowsCapability -Online -Name** _característica_                                     | Instala una característica a petición                                           |
+| **Get-Command** _patrón_                                                                     | Busca cmdlets (por ejemplo, `*ADUser*`)                                         |
+| **Get-Help** _cmdlet_ [**-Examples**]                                                        | Ayuda y ejemplos de un cmdlet                                                   |
+
+Ojo: el escape `\|` solo hace falta dentro de tablas markdown. En la consola, la barra que aparece en la notación no se escribe, solo indica alternativas.
+
 ## red
 
 | Comando                                                    | Para qué                                    |

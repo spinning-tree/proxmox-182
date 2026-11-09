@@ -11,6 +11,7 @@
 - **GPP (Group Policy Preferences)**: sección de una GPO que configura ajustes del día a día, como unidades de red, impresoras, accesos directos o claves de registro. A diferencia de las directivas, no se imponen: el usuario puede cambiarlos. Permiten _item-level targeting_, es decir, aplicar cada elemento solo si se cumple una condición (grupo, OU, equipo, IP…).
 - **Default Domain Policy (DDP):** vinculada al **dominio**. Contiene las directivas de cuenta (contraseña, bloqueo, Kerberos) de todas las cuentas del dominio.
 - **FGPP** (Fine-Grained Password Policies) son políticas de contraseña y bloqueo que se aplican a usuarios o grupos concretos y se saltan la regla general de la **DDP**.
+- **RSAT**: Es el conjunto de consolas y módulos de PowerShell para administrar **cualquier rol** de Windows Server desde una PC (AD DS, Group Policy Management, DNS y DHCP, Server Manager, etc.) 
 ## gpos
 
 Las GPO's son paquetes de configuraciones que se definen en el DC y se almacenan en la carpeta SYSVOL que los clientes descargan. Se linkean a una OU (afecta a todos los equipos/usuarios de esa OU)
@@ -155,7 +156,7 @@ Para **FGPP** (*Fine-Grained Password Policies*), definimos una política más r
 3. En el panel derecho, **Nuevo > Configuración de contraseña**
 4. Rellenar:
     - **Nombre:** PSO_Admins
-    - **Precedencia:** 10
+    - **Precedencia:** 10 (si un usuario tiene varias reglas de contraseña, gana la más baja)
     - **Exigir longitud mínima:** 15
     - **Exigir historial:** 24
     - **Requisitos de complejidad:** marcado
@@ -298,5 +299,22 @@ Consiste en que Documentos y Escritorio de cada usuario no se guarden en el disc
 
 ![](https://imgur.com/Q40U9zo.png)
 
-# RSAT
+# RSAT 
+Es importante tener en cuenta que la contraseña Administrator no debe usarse para el día. Lo ideal es crear una cuenta separada para cada admin (trazabilidad) y que el DC pueda gestionarse desde una estación a través de RSAT.
+
+En este ejemplo, utilizaremos el usuario `cesar` y la cuenta `adm-cesar`
+
+1. **Crear la OU:** en ADUC, dentro de **LAB**, crear la OU **Admins** y deja marcada la protección contra eliminación accidental.
+
+> Es buena práctica crear una OU separada para los Domain Admins, o para los usuarios con privilegios administrativos en general.
+
+2. **Crear usuario normal:** **cesar** en **LAB/Usuarios**, sin grupos de administración. 
+3. **Crear la cuenta de admin:** **adm-cesar** en **LAB/Admins**. En la pestaña **Miembro de**, agregarla a **Domain Admins**.
+4. **Instalar la GPMC en PC-01**  
+    `Add-WindowsCapability -Online -Name Rsat.GroupPolicy.Management.Tools~~~~0.0.1.0`
+5. **Iniciar sesión en pc como cesar**
+6. **Abrir las consolas como adm-cesar sin cerrar sesión.** 
+
+> Lo dicho: **Retirar Administrator del día a día es recomendable**: ponerle una contraseña larga, guardarla y, en lo adelante, administrar solo con adm-cesar desde pc.
+
 
