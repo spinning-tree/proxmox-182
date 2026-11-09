@@ -1,4 +1,4 @@
-# configuración adicional
+# configuración avanzada
 
 > Previamente es necesario [configurar windows server](configuracion-basica-windows-server.md)
 
@@ -9,6 +9,8 @@
 - **NTFS (permisos del sistema de archivos)**: se aplican siempre, tanto por red como en local. Son granulares (Lectura, Lectura y ejecución, Escritura, Modificar, Control total) y se heredan de la carpeta padre a sus subcarpetas y archivos. Se configuran en Propiedades → Seguridad, y se asignan a los grupos DL_.
 - **Access-Based Enumeration (ABE)**: cada usuario solo ve las carpetas y archivos a los que tiene acceso. Se activa en el recurso compartido. ABE solo oculta al acceder por la red, porque es una función de SMB. 
 - **GPP (Group Policy Preferences)**: sección de una GPO que configura ajustes del día a día, como unidades de red, impresoras, accesos directos o claves de registro. A diferencia de las directivas, no se imponen: el usuario puede cambiarlos. Permiten _item-level targeting_, es decir, aplicar cada elemento solo si se cumple una condición (grupo, OU, equipo, IP…).
+- **Default Domain Policy (DDP):** vinculada al **dominio**. Contiene las directivas de cuenta (contraseña, bloqueo, Kerberos) de todas las cuentas del dominio.
+- **FGPP** (Fine-Grained Password Policies) son políticas de contraseña y bloqueo que se aplican a usuarios o grupos concretos y se saltan la regla general de la **DDP**.
 ## gpos
 
 Las GPO's son paquetes de configuraciones que se definen en el DC y se almacenan en la carpeta SYSVOL que los clientes descargan. Se linkean a una OU (afecta a todos los equipos/usuarios de esa OU)
@@ -125,6 +127,51 @@ Generalmente, las GPOs de usuario dependen de la OU del usuario. Con loopback qu
 
 ![](https://imgur.com/bH6iVqz.png)
 
+#### DDP/FGPP
+En la Default Domain Policy (Una GPO que afecta a todo el dominio) se definen generalmente las políticas de contraseña y bloqueo, etc. 
+
+1. En GPMC, clic derecho en **Default Domain Policy** > **Editar**
+2. Ir a **Configuración del equipo > Directivas > Configuración de Windows > Configuración de seguridad > Directivas de cuenta > Directiva de contraseñas** y configurar:
+    - **Exigir historial de contraseñas:** 24
+    - **Vigencia máxima de la contraseña:** 90 días
+    - **Vigencia mínima de la contraseña:** 1 día
+    - **Longitud mínima de la contraseña:** 12
+    - **La contraseña debe cumplir los requisitos de complejidad:** Habilitada
+    - **Almacenar contraseñas con cifrado reversible:** Deshabilitada (no tocar)
+3. En **Directiva de bloqueo de cuenta**:
+    - **Umbral de bloqueo de cuenta:** 5 intentos
+    - **Duración del bloqueo de cuenta:** 15 minutos
+    - **Restablecer el contador de bloqueos de cuenta tras:** 15 minutos
+4. Cerrar el editor y en DC1 ejecutar `gpupdate /force`.
+
+![](https://imgur.com/MOX96zG.png)
+
+Para **FGPP** (*Fine-Grained Password Policies*), definimos una política más robusta que sobreescribe los valores de la DDP (ideal para altos cargos o admins)
+
+> Ojo: Una FGPP no es una GPO, sob objetos de AD llamados PSO (Password Settings Object)
+
+1. Abrir el **Centro de administración de Active Directory**
+2. En el panel izquierdo cambiar a **vista de árbol** e ir a **november (local) > System > Password Settings Container**.
+3. En el panel derecho, **Nuevo > Configuración de contraseña**
+4. Rellenar:
+    - **Nombre:** PSO_Admins
+    - **Precedencia:** 10
+    - **Exigir longitud mínima:** 15
+    - **Exigir historial:** 24
+    - **Requisitos de complejidad:** marcado
+    - **Exigir vigencia mínima:** 1 día
+    - **Exigir vigencia máxima:** 60 días
+    - **Exigir directiva de bloqueo:** 3 intentos, contador a 30 min, bloqueo durante 30 min
+    - Dejar marcado **Proteger contra eliminación accidental**
+5. En **Se aplica directamente a**, pulsar **Agregar** y elegir **Domain Admins**
+6. Pulsar **Aceptar**. 
+
+![](https://imgur.com/TpKhUkR.png)
+
+>No hace falta `gpupdate`, porque no es una GPO: se aplica en cuanto replica.
+
+7. Verificar:
+    - En ADAC, clic derecho en un usuario Domain Admin > **Ver configuración de contraseña resultante**.
 # SMB + NTFS
 
 Microsoft utiliza una convención para dar acceso a recursos llamada AGDLP ((Accounts → Global → Domain Local → Permissions). Básicamente defines Grupos Globales (agupan usuarios por departamento, ej. Economía) y Grupos locales de dominio (DL) por cada recurso y nivel de acceso (quién puede hacer qué sobre qué), ejemplo: DL_Economía_Modificar, DL_Economía_Lectura, DL_Impresora_Imprimir, etc.
@@ -220,5 +267,36 @@ C:\RECURSOS → \\DC1\RECURSOS (ABE)
 5. Repetir los pasos 3 y 4 para `\\DC1\RH` (S:, G_RH) y `\\DC1\OPS` (S:, G_Operaciones).
 6. Una última unidad para `\\DC1\RECURSOS`, letra **R:**, **sin** item-level targeting.
 
+## redirección de carpetas
 
+Consiste en que Documentos y Escritorio de cada usuario no se guarden en el disco del PC, sino en una carpeta suya del servidor, aunque el usuario las siga viendo en el sitio de siempre. 
+
+> Por dentro, la GPO cambia la ruta de esas carpetas en el registro del usuario para que apunten a algo como `\\DC1\Perfiles$\%USERNAME%\Documents`. El resto del perfil (AppData, configuración) sigue siendo local.
+
+1. Crear `C:\Redireccion`.
+2. Compartir como **Redireccion$**
+
+> El `$` permite ocultar la carpeta al navegar por la red. 
+
+4. Compartir (Adavanced Sharing -> Autheticated Users -> Full Control), activar ABE, en pestaña Security -> Opciones avanzadas → Deshabilitar herencia → Quitar todos los permisos heredados 
+
+> Aquí Domain Users debe tener permisos de _Recorrer carpeta_, _Mostrar carpeta / Leer datos_, _Leer atributos_ y _Crear carpetas / Anexar datos_ → **Solo esta carpeta** (Cada usuario puede crear su propia carepta pero no puede ver/entrar al resto)
+
+5. En GPMC, crear **U_Redireccion_Carpetas** en **Usuarios**.
+6. Luego _User Configuration -> Policies -> Windows Settings -> Folder Redirection -> Documents_ → clic derecho → Properties.
+7. Pestaña _Target_:
+    - Setting: **Basic**.
+    - Target folder location: **Create a folder for each user under the root path**.
+    - Root path: `\\DC1\Redireccion$`
+
+> Ojo, poner la ruta de red, no la ruta local `C:\Redireccion`
+
+8. Pestaña _Settings_:
+    - Desmarcar **Grant the user exclusive rights** (para que los admins puedan entrar)
+    - Dejar marcado **Move the contents…**.
+9. Repetir los pasos 6–9 con **Desktop**.
+
+![](https://imgur.com/Q40U9zo.png)
+
+# RSAT
 

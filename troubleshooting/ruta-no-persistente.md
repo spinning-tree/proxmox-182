@@ -1,4 +1,14 @@
 # RDP falla desde el Mac tras reiniciar: ruta estática no persistente
+
+| Campo              | Valor                             |
+| ------------------ | --------------------------------- |
+| Ticket             | TS-001                            |
+| Tipo               | Incidencita                       |
+| Categoría          | Red > Enrutamiento                |
+| Urgencia / Impacto | Media                             |
+| Prioridad          | Media                             |
+| Estado             | Cerrado                           |
+| Abierto / Resuelto | 2016-10-7 10:10 / 2016-10-7 10:43 |
 ## Resumen
 Tras reiniciar el mac, falla la conexión RDP con la VM de proxmox. La ruta estática configurada se borró durante el reinicio. Se solucionó instalando una ruta persistente.
 ## Entorno

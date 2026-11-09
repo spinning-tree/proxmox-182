@@ -17,12 +17,16 @@
 | **Resolve-DnsName** *dominio*         | Igual que nslookup, en PowerShell                                           |
 ## ntp
 
-| Comando                                                                                                   | Para qué                                                                        |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **w32tm /config /manualpeerlist:**"*domain1 domain2*" **/syncfromflags:manual** **/reliable:yes /update** | Sincroniza el dc con servidores externos (Ejemplo: *pool.ntp.org, hora.roa.es*) |
-| **w32tm /query /status**                                                                                  | Fuente y estado de la sincronización                                            |
-| **w32tm /resync**                                                                                         | Forzar la sincronización                                                        |
-| **w32tm /resync /rediscover**                                                                             | Volver a detectar fuentes y sincronizar (tras cambiar la configuración)         |
+| Comando                                                                                                                                                                     | Para qué                                                                                    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **w32tm /config /manualpeerlist:"0.es.pool.ntp.org,0x8 1.es.pool.ntp.org,0x8 2.es.pool.ntp.org,0x8 3.es.pool.ntp.org,0x8" /syncfromflags:manual /reliable:yes /update**<br> | Sincroniza el dc con servidores externos. El :0x8 decide **cómo** consulta: en modo cliente |
+| **w32tm /query /status**                                                                                                                                                    | Fuente y estado de la sincronizac                                                           |
+| **w32tm /resync /nowait**                                                                                                                                                   | Forzar la sincroniza                                                                        |
+| **w32tm /query /peers**                                                                                                                                                     | Muestra el estado de cada servidor configurado                                              |
+| **w32tm /resync /rediscover**                                                                                                                                               | Volver a detectar fuentes y sincronizar (tras cambiar la configura                          |
+| **tzutil /g**                                                                                                                                                               | Muestra la zona horaria actual                                                              |
+| **tzutil /s** "*id_interno*"                                                                                                                                                | Ajusta la zona horaria del equipo                                                           |
+| **tzutil /l**                                                                                                                                                               | Para ver correspondencia entre el nombre y el id                                            |
 ## diagnóstico del dc
 
 | Comando                        | Para qué                                |

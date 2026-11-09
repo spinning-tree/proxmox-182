@@ -142,6 +142,32 @@ PS C:\WINDOWS\system32>
 
 ![](https://imgur.com/WyhwApt.png)
 
+### Delegación de control
+En vez de hacer Domain Admin a todo el que tenga que resetear contraseñas, es buena práctica crear un grupo con  permisos (resetear contraseñas, desbloquear cuentas), y solo sobre una OU concreta. 
+
+> El asistente de delegación añade automáticamente entradas a la ACL de esa OU.
+
+1. **Crear el grupo:** en LAB/Grupos, un grupo global de seguridad **G_Helpdesk**.
+2. **Crear un técnico de prueba:** en LAB/Usuarios, un usuario **soporte1**, y añadirlo a G_Helpdesk.
+3. **Primera delegación, para resetear contraseñas:**
+    - Clic derecho en la OU **LAB/Usuarios** > **Delegar control**.
+    - Agregar **G_Helpdesk**.
+    - Marcar **Restablecer contraseñas de usuario y forzar el cambio de contraseña en el siguiente inicio de sesión**.
+    - Finalizar.
+4. **Segunda delegación, para desbloquear.** Desbloquear no viene en las tareas comunes. Hay que hacerlo aparte:
+    - Otra vez **Delegar control** sobre LAB/Usuarios, con **G_Helpdesk**.
+    - Elegir **Crear una tarea personalizada**.
+    - **Sólo los siguientes objetos de la carpeta** > marcar **Objetos Usuario**
+    - En permisos, desmarcar **General** y marcar **Específicos de propiedades**
+    - Marcar **Leer lockoutTime** y **Escribir lockoutTime**.
+    - Finalizar.
+5. **Instalar RSAT en PC-01:** Configuración -> Sistema -> Características opcionales -> Agregar -> **RSAT: Herramientas de Active Directory Domain Services**.
+
+> Para este paso ver la sección [RSAT](configuracion-avanzada-windows-server#RSAT)
+
+> Para comprobar, en ADUC -> **Ver > Características avanzadas**. En LAB/Usuarios -> Propiedades -> **Seguridad** -> **Opciones avanzadas**. Aparecerán las entradas de G_Helpdesk.
+
+
 ## Unir equipo al dominio
 
 > Antes de unir un equipo al dominio, conviene crear una cuenta de usuario en AD. 
