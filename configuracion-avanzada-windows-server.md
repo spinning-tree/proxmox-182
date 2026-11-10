@@ -12,6 +12,20 @@
 - **Default Domain Policy (DDP):** vinculada al **dominio**. Contiene las directivas de cuenta (contraseña, bloqueo, Kerberos) de todas las cuentas del dominio.
 - **FGPP** (Fine-Grained Password Policies) son políticas de contraseña y bloqueo que se aplican a usuarios o grupos concretos y se saltan la regla general de la **DDP**.
 - **RSAT**: Es el conjunto de consolas y módulos de PowerShell para administrar **cualquier rol** de Windows Server desde una PC (AD DS, Group Policy Management, DNS y DHCP, Server Manager, etc.) 
+- **Relación de confianza**: Al unir un equipo al dominio, se crea en AD una cuenta de equipo con su propia contraseña, que el PC y el DC renuevan solos cada 30 días. Esa contraseña compartida es la **relación de confianza**. 
+- **KDC** (_Key Distribution Center_): es el servicio que emite los tickets Kerberos. Corre en todos los DC. Si no puedes llegar a un DC, no consigues tickets nuevos.
+- **TGT** (_Ticket Granting Ticket_): es el primer ticket que recibes al iniciar sesión (va cifrado con la clave krbtgt, la pc no lo descifra), y solo sirve para pedir otros tickets. En `klist` aparece como `krbtgt/NOVEMBER.LAB`. Dura 10 h y se puede renovar hasta 7 días.
+- **krbtgt**: es una cuenta interna de AD que usa el KDC para crifrar los TGT. No es de ningún usuario y nadie inicia sesión con ella, no vive en el PC. Si su contraseña se ve comprometida, todos los tickets del dominio dejan de ser fiables.
+	1. **Inicio de sesión:** PC le pide un TGT al **KDC** (DC1). El KDC se lo da, cifrado con la clave de krbtgt (y otros datos: usuario, grupos "congelados"). Esta es la razón por la que, cuando añades usuario a un grupo, debes purgar el klist.
+	2. **Acceso a un servicio:** PC le presenta ese TGT al **KDC** y le pide un ticket para un SPN concreto, por ejemplo `cifs/DC1`. El KDC comprueba que la firma del TGT es buena (con la clave de krbtgt) y emite el ticket de servicio, cifrado con la clave de la cuenta que ejecuta ese servicio
+	3. **Uso:** tu PC le entrega ese ticket al servicio, el SMB de DC1. El servicio lo descifra con su propia clave y te deja pasar **sin hablar con el KDC**.
+- **SPN** (_Service Principal Name_): es el nombre exacto de un servicio en el dominio, con el formato `servicio/servidor[/dominio]`. Kerberos emite los tickets para ese nombre exacto, así que si accedes con otro nombre (corto, FQDN o IP), el ticket cambia o no hay ticket.
+- **Ticket de servicio**: es el ticket que pides con el TGT para acceder a un servicio concreto. Hay uno por cada SPN que usas, y nunca dura más que el TGT del que salió.
+- **cifs**: es el nombre de servicio que usa SMB (carpetas compartidas) en los SPN; CIFS es el nombre antiguo de SMB. Lo pides al acceder a `\\servidor\recurso`, a SYSVOL o a una unidad mapeada.
+- **ldap**: LDAP es el protocolo para consultar AD, porque AD es el directorio y LDAP es la forma de preguntarle. Lo usan las GPO, ADUC y el inicio de sesión para leer tus grupos y tus atributos.
+- **NTLM**: es el método de autenticación antiguo que usa Windows cuando Kerberos no está disponible, por ejemplo al acceder por IP. No deja tickets en `klist`.
+- **mDNS**: al igual que **LLMNR** son servicios de DNS por multicast (misma red local) a la `224.0.0.252`. NetBIOS hace lo mismo por broadcast. mDNS añade el sufijo `.local`. Es un riesgo de seguridad.
+- **SRV**: es un tipo de registro DNS que indica **qué servidor ofrece un servicio concreto en un dominio, y por qué puerto**. Ejemplo: `_ldap._tcp.dc._msdcs.november.lab` es un SRV que anuncia un servicio en dc por tcp para ldap en el dominio november.lab.
 ## gpos
 
 Las GPO's son paquetes de configuraciones que se definen en el DC y se almacenan en la carpeta SYSVOL que los clientes descargan. Se linkean a una OU (afecta a todos los equipos/usuarios de esa OU)

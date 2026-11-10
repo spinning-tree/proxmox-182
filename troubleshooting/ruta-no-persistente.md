@@ -3,7 +3,7 @@
 | Campo              | Valor                             |
 | ------------------ | --------------------------------- |
 | Ticket             | TS-001                            |
-| Tipo               | Incidencita                       |
+| Tipo               | Incidencia                        |
 | Categoría          | Red > Enrutamiento                |
 | Urgencia / Impacto | Media                             |
 | Prioridad          | Media                             |
