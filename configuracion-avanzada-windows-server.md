@@ -94,6 +94,8 @@ Otra cosa:
 
 ### gpos de equipos
 
+#### mensaje de bienvenida
+
 1. **Crear la GPO:** En gpmc.msc, clic derecho en **Equipos** → _Create a GPO in this domain, and Link it here_ → nombre -> *mensaje*
 
 ![](https://imgur.com/K1wOz8k.png)
@@ -112,6 +114,28 @@ Otra cosa:
 
 ![](https://imgur.com/0Gt3AVg.png)
 
+#### habilitar conexiones remotas desde dc
+
+1. **Crear y vincular la GPO.** En la GPMC, clic derecho en la OU de equipos, _Crear un GPO en este dominio y vincularlo aquí_, con el nombre `EQ - Firewall - Admin remota`.
+2. **Abrir el nodo del firewall.** Editar la GPO y luego: _Configuración del equipo → Directivas → Configuración de Windows → Configuración de seguridad → Firewall de Windows Defender con seguridad avanzada → Reglas de entrada_.
+3. **Crear las reglas predefinidas.** Clic derecho, _Nueva regla → Predefinida → Compartir archivos e impresoras_. Marcar solo:
+    - _Compartir archivos e impresoras (Solicitud de eco: ICMPv4 de entrada)_, perfil Dominio
+    - _Compartir archivos e impresoras (SMB de entrada)_, perfil Dominio
+
+![](https://imgur.com/n6KZ0Bi.png)
+
+4. **Acción.** Elegir **Permitir la conexión** y finaliza.
+5. **Limitar el origen.** Abrir cada regla, pestaña _Ámbito → Dirección IP remota → Estas direcciones IP_, y añadir las IP de DC1 y del cliente de administración.
+
+![](https://imgur.com/D83OnBk.png)
+
+6. **Aplicar en el cliente.** En PC-01, `gpupdate /force`.
+7. **Verificar en el cliente:**
+    - `gpresult /r /scope computer`: la GPO debe aparecer en la lista de aplicadas (powershell elevado).
+    - `wf.msc → Reglas de entrada`: las dos reglas deben aparecer con el icono de directiva (no son editables en local).
+8. **Probar desde DC1** (o desde el cliente de administración):
+    - `ping PC-01`
+    - `\\PC-01\c$` en el Explorador, con una cuenta que sea admin local del equipo.
 ### configuración avanzada gpos
 
 #### Herencia

@@ -77,7 +77,7 @@
 | **net accounts** [**/domain**]                                    | Política de contraseñas y bloqueo vigente                        |
 | **Test-ComputerSecureChannel**                                    | Para verificar la relación de confianza DC <-> PC                |
 | **Test-ComputerSecureChannel -Repair -Credential** *DOMINIO\user* | Reparar la relación de confianza                                 |
-# kerberos
+## kerberos
 
 | Comando             | Para qué sirve                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
@@ -88,12 +88,14 @@
 | **klist sessions**  | Lista las sesiones de inicio abiertas en el equipo, con su LogonId                                                       |
 ## gpo
 
-| Comando                                                                                                                                                                               | Qué hace                                                                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **gpupdate** [**/force**] [**/target:**{**computer** \| **user**}] [**/boot** \| **/logoff**]                                                                                         | Aplica las GPOs ya; /force las vuelve a aplicar todas, /target solo equipo o usuario, /boot y /logoff reinician o cierran sesión si hace falta |
-| **gpresult /r** [**/scope** {**computer** \| **user**}]                                                                                                                               | Resumen de las GPOs aplicadas y filtradas                                                                                                      |
-| **gpresult** [**/user** _DOMINIO\usuario_] **/h** _informe.html_ [**/f**]                                                                                                             | Informe completo en HTML; /user elige el usuario y /f sobrescribe el archivo                                                                   |
-| **gpresult /z**                                                                                                                                                                       | Detalle máximo en la consola                                                                                                                   |
+| Comando                                                                                       | Qué hace                                                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **gpupdate** [**/force**] [**/target:**{**computer** \| **user**}] [**/boot** \| **/logoff**] | Aplica las GPOs ya; /force las vuelve a aplicar todas, /target solo equipo o usuario, /boot y /logoff reinician o cierran sesión si hace falta |
+| **gpresult /r** [**/scope** {**computer** \| **user**}]                                       | Resumen de las GPOs aplicadas y filtradas                                                                                                      |
+| **gpresult** [**/user** _DOMINIO\usuario_] **/h** _informe.html_ [**/f**]                     | Informe completo en HTML; /user elige el usuario y /f sobrescribe el archivo                                                                   |
+| **gpresult /v**                                                                               | Detalle verbose en la consola (ajustes que ganaron)                                                                                            |
+| **gpresult /z**                                                                               | Detalle super-verbose en la consola (ajustes que ganaron y los que perdieron)                                                                  |
+|                                                                                               |                                                                                                                                                |
 
 # proxmox
 ## nodo
