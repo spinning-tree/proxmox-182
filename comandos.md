@@ -32,11 +32,15 @@
 | **Get-Help** _cmdlet_ [**-Examples**]                                                        | Ayuda y ejemplos de un cmdlet                                                     |
 ## red
 
-| Comando                                                    | Para qué                                                                                                                              |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **ping** [**-4** \| **-6**] _nombre_                       | Resuelve con todo el sistema de Windows (DNS, mDNS, LLMNR, NetBIOS) y prueba la conectividad; **-4** o **-6** fuerza la versión de IP |
-| **Test-NetConnection** *nombre_DC* **-Port** *port_number* | Comprobar si llegas a un puerto del DC                                                                                                |
-| **ipconfig /all**                                          | Ver IP, puerta de enlace y DNS configurados                                                                                           |
+| Comando                                                                                         | Para qué                                                                                                                              |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **ipconfig /all**                                                                               | Ver IP, puerta de enlace y DNS configurados                                                                                           |
+| **ping** [**-4** \| **-6**] _nombre_                                                            | Resuelve con todo el sistema de Windows (DNS, mDNS, LLMNR, NetBIOS) y prueba la conectividad; **-4** o **-6** fuerza la versión de IP |
+| **Test-NetConnection** *nombre_DC* **-Port** *port_number*                                      | Comprobar si llegas a un puerto del DC                                                                                                |
+| **Test-WSMan** _equipo_                                                                         | Comprueba si el servicio WinRM del equipo remoto responde.                                                                            |
+| **Enter-PSSession -ComputerName** _equipo_                                                      | Abre una sesión interactiva de PowerShell en otro equipo, como si fuera SSH.                                                          |
+| **Exit-PSSession**                                                                              | Cierra la sesión remota y vuelve a la consola local.                                                                                  |
+| **Invoke-Command -ComputerName** _equipo_[**,**_equipo_...] **-ScriptBlock {** _comandos_ **}** | Ejecuta comandos en uno o varios equipos remotos sin abrir una sesión interactiva.                                                    |
 ## dns
 
 | Comando                                                                             | Para qué                                                                                                 |
@@ -95,7 +99,17 @@
 | **gpresult** [**/user** _DOMINIO\usuario_] **/h** _informe.html_ [**/f**]                     | Informe completo en HTML; /user elige el usuario y /f sobrescribe el archivo                                                                   |
 | **gpresult /v**                                                                               | Detalle verbose en la consola (ajustes que ganaron)                                                                                            |
 | **gpresult /z**                                                                               | Detalle super-verbose en la consola (ajustes que ganaron y los que perdieron)                                                                  |
-|                                                                                               |                                                                                                                                                |
+## laps
+
+| Comando                                                                                       | Para qué sirve                                                                                         |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| **Update-LapsADSchema** [**-Confirm:$false**]                                                 | Añade los atributos de LAPS al esquema de AD. Requiere Schema Admins.                                  |
+| **Set-LapsADComputerSelfPermission -Identity** _DN-OU_                                        | Deja que los equipos de la OU escriban su contraseña en AD.                                            |
+| **Set-LapsADReadPasswordPermission -Identity** _DN-OU_ **-AllowedPrincipals** _DOMINIO\grupo_ | Da a un grupo permiso para leer el atributo de la contraseña.                                          |
+| **Invoke-LapsPolicyProcessing**                                                               | Fuerza ahora la revisión de LAPS: aplica la directiva y rota la contraseña **solo** si ha caducado.    |
+| **Reset-LapsPassword**                                                                        | Rota la contraseña al momento, haya caducado o no. Se ejecuta en el cliente, como administrador local. |
+| **Set-LapsADPasswordExpirationTime -Identity** _equipo_                                       | Marca la contraseña como caducada en AD, igual que _Expire now_.                                       |
+| **Get-LapsADPassword -Identity** _equipo_ [**-AsPlainText**]                                  | Muestra la contraseña de LAPS de un equipo.                                                            |
 
 # proxmox
 ## nodo
