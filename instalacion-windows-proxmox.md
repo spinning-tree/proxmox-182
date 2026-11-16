@@ -147,6 +147,9 @@ root@november:~#
 
 ![](https://i.imgur.com/YHpWX9F.png)
 
+
+> En versiones recientes, si pide conexión y solo queremos usuario local: `start ms-cxh:localonly` abre directamente la creación de una cuenta local, sin reiniciar.`OOBE\BYPASSNRO` funciona en versiones anteriores a 2025
+
 5. Cuando reinicie, poner "i don't have internet", configurar un nombre de usuario, contraseña, etc.
 6. Una vez en el escritorio de windows, ejecutar el `virtio-win-guest-tools.exe` 
 
@@ -159,13 +162,21 @@ root@november:~#
 # convertir una vm en plantilla
 
 1. Es buena idea tomar una vm y convertirla en plantilla de otras vms (esto evita tener que repetir todos los pasos anteriores)
-2. Lo primero es preparar el sistema. En CMD, ejecutar 
+2. Opcional:
+    - Windows Update hasta que no quede nada pendiente.
+    - `virtio-win-guest-tools.exe`: instala los drivers que falten y el QEMU Guest Agent.
+    - Zona horaria (Madrid) e idioma/teclado correctos.
+    - Activa RDP para administrar los clones
+    - Plan de energía en Alto rendimiento
+    - Limpieza: `Dism /Online /Cleanup-Image /StartComponentCleanup` y vaciar temporales, para que la plantilla ocupe menos.
+3. Lo primero es preparar el sistema. En CMD, ejecutar 
 
 ```
 C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown
 ```
 
 > Durante este proceso, BitLocker puede dar problemas, mejor desactivarlo con `manage-bde -off C:` con permisos de admin.
+> En la práctica, es mejor desactivarlo completo con `PreventDeviceEncryption` = 1 (DWORD) en `HKLM\SYSTEM\CurrentControlSet\Control\BitLocker`.
 
 ![](https://i.imgur.com/PB2FqjB.png)
 

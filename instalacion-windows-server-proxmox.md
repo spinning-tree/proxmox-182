@@ -31,13 +31,18 @@
 
 ![](https://imgur.com/4OEoBgP.png)
 
-7. Ahora convertimos a plantilla. En CMD:
+7. Opcional:
+	- Windows Update hasta que no quede nada pendiente. 
+	- `virtio-win-guest-tools.exe`: instala los drivers que falten y el QEMU Guest Agent. 
+	- Zona horaria (Madrid) e idioma/teclado correctos.
+	- Activa RDP para administrar los clones
+	- Plan de energía en Alto rendimiento
+	- Limpieza: `Dism /Online /Cleanup-Image /StartComponentCleanup` y vaciar temporales, para que la plantilla ocupe menos.
 
+8. Coinvertir a plantilla
 ```cmd
 `C:\Windows\System32\Sysprep\sysprep.exe /generalize /oobe /shutdown`.
 ```
-
-> Antes de ejecutar este comando configurar windows update, timezone, keyaboard, rdp, etc.
 
 ![](https://imgur.com/MqtlHw2.png)
 

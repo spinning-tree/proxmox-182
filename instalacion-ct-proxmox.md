@@ -6,7 +6,7 @@
 
 # descargar plantilla e instanciar
 
-1. En **local (november)** -> CT Templates -> Templates
+1. En **local (november)** -> CT Templates -> Templates -> **debian-13-standard**
 	- **Upload:** subir una plantilla desde el ordenador.
 	- **Download from URL:** descargar una plantilla desde un enlace.
 	- **Templates:** mostrar el catálogo oficial de Proxmox, con plantillas listas para descargar. 

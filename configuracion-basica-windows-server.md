@@ -7,13 +7,13 @@
 - **SYSVOL**: carpeta compartida de cada DC donde se guardan las GPO y los scripts. Se replica entre DCs para que todos tengan lo mismo.
 - **NETLOGON**: es un recurso compartido dentro de SYSVOL donde van los scripts de inicio de sesión, y también el servicio que autentica a usuarios y equipos y registra en DNS los registros del DC.
 - **KDC (Key Distribution Center)**: el servicio de Kerberos. Cuando inicias sesión, te da el “ticket” que demuestra quién eres para acceder a recursos sin volver a meter la contraseña.
-- **Kerberos**: el protocolo de autenticación de AD. Es sensible a la hora: si los relojes difieren más de 5 minutos, falla.
-- **Registros SRV**: entradas DNS que dicen “el servicio X está en tal servidor y puerto”. Es como los clientes encuentran el DC.
+- **Kerberos**: el protocolo de autenticación de AD. Es sensible a la hora: si los relojes difieren más de 5 minutos, falla.0
 - **GC (Catálogo Global)**: copia resumida de todos los objetos del bosque, para búsquedas rápidas y para el inicio de sesión.
 - **DFSR**: el mecanismo que replica SYSVOL entre DCs.
 - **DSRM (Directory Services Restore Mode)**: un modo de arranque especial del DC con AD apagado, como el “modo seguro” de un controlador de dominio. Se usa para reparar o restaurar la base de datos de AD.
 - **RODC (Read-Only Domain Controller)**: un DC de solo lectura, pensado para sitios poco seguros como una sucursal pequeña. Tiene una copia de AD que no se puede modificar ahí; los cambios se hacen en un DC normal y le llegan replicados. Por defecto no guarda las contraseñas de los usuarios, solo las de quienes autorices. 
-- **Registros SRV**: son las entradas DNS que dicen dónde está el DC, por ejemplo “LDAP de november.lab está en dc1, puerto 389”. Los clientes los consultan para encontrar el DC al unirse al dominio o iniciar sesión. El servicio Netlogon los crea en DNS al arrancar. 
+- **Registros SRV**: son las entradas DNS que dicen dónde está el DC, por ejemplo “LDAP de november.lab está en dc1, puerto 389”. Los clientes los consultan para encontrar el DC al unirse al dominio o iniciar sesión. El servicio Netlogon los crea en DNS al arrancar.
+- **UNC** (_Universal Naming Convention_) es el formato Windows para escribir la ruta de un recurso de red: `\\servidor\recurso\archivo`. Aquí _servidor_ puede ser un nombre corto, un FQDN o una IP y _recurso_ es el nombre del recurso compartido, no la carpeta física del disco. Las **Hardened UNC Paths** son reglas que el cliente aplica a ciertas rutas UNC concretas, como `\\*\SYSVOL` y `\\*\NETLOGON`, exigiendo autenticación mutua para conectarse a ellas.
 ## primeros pasos
 
 1. Definir un nombre de host en Server Manager -> Local Server -> Computer name

@@ -22,7 +22,6 @@
 | **Stop-Process -Name** _proceso_ [**-Force**]                                                | Mata un proceso (en CMD: **taskkill /im** _proceso_.exe [**/f**])                 |
 | **Get-Process -IncludeUserName** *user*                                                      | qué procesos ejecuta cada cuenta                                                  |
 | **Restart-Computer** [**-ComputerName** _equipo_] [**-Force**]                               | Reinicia el equipo local o uno remoto                                             |
-| **Get-WinEvent -LogName** {**System** \| **Application** \| **Security**} **-MaxEvents** _n_ | Últimos eventos de un registro                                                    |
 | **sfc /scannow**                                                                             | Comprueba y repara archivos del sistema                                           |
 | **DISM /Online /Cleanup-Image /RestoreHealth**                                               | Repara la imagen de Windows (lánzalo antes que sfc si sfc falla)                  |
 | **chkdsk** _unidad_: [**/f**]                                                                | Comprueba y repara el sistema de archivos                                         |
@@ -30,6 +29,23 @@
 | **Add-WindowsCapability -Online -Name** _característica_                                     | Instala una característica a petición                                             |
 | **Get-Command** _patrón_                                                                     | Busca cmdlets (por ejemplo, `*ADUser*`)                                           |
 | **Get-Help** _cmdlet_ [**-Examples**]                                                        | Ayuda y ejemplos de un cmdlet                                                     |
+## navaja suiza net
+
+| Comando                                                                                                     | Para qué sirve                                                                |
+| ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **net user** [_usuario_] [**/domain**]                                                                      | Ver usuarios, o el detalle de uno: grupos, caducidad, último inicio de sesión |
+| **net user** _usuario_ ***** **/domain**                                                                    | Restablecer la contraseña de un usuario del dominio                           |
+| **net user** _usuario_ **/active:**{**yes** \| **no**} [**/domain**]                                        | Habilitar o deshabilitar una cuenta                                           |
+| **net group** [_grupo_] **/domain**                                                                         | Ver los grupos del dominio y sus miembros                                     |
+| **net localgroup** [_grupo_]                                                                                | Ver los grupos locales y sus miembros                                         |
+| **net localgroup** _Administrators_ _dominio\usuario_ **/add**                                              | Añadir un usuario a un grupo local                                            |
+| **net accounts** [**/domain**]                                                                              | Ver la directiva de contraseñas y de bloqueo                                  |
+| **net use** [_X:_] \\_servidor_\_recurso_ [**/user:**_usuario_ *****] [**/persistent:**{**yes** \| **no**}] | Conectar o mapear un recurso de red                                           |
+| **net use** [_X:_ \| \\_servidor_\_recurso_] **/delete**                                                    | Desconectar un recurso                                                        |
+| **net share** [_nombre_]                                                                                    | Ver los recursos compartidos del equipo                                       |
+| **net session**                                                                                             | Ver quién está conectado a este equipo                                        |
+| **net view** \\_servidor_                                                                                   | Ver los recursos que comparte otro equipo                                     |
+| **net start** \| **net stop** _servicio_                                                                    | Iniciar o detener un servicio                                                 |
 ## red
 
 | Comando                                                                                         | Para qué                                                                                                                              |
@@ -110,6 +126,53 @@
 | **Reset-LapsPassword**                                                                        | Rota la contraseña al momento, haya caducado o no. Se ejecuta en el cliente, como administrador local. |
 | **Set-LapsADPasswordExpirationTime -Identity** _equipo_                                       | Marca la contraseña como caducada en AD, igual que _Expire now_.                                       |
 | **Get-LapsADPassword -Identity** _equipo_ [**-AsPlainText**]                                  | Muestra la contraseña de LAPS de un equipo.                                                            |
+
+## visor de eventos
+
+| Comando                                                                                                                  | Para qué sirve                                                        |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| **eventvwr.msc**                                                                                                         | Abrir el Visor de eventos                                             |
+| **Get-WinEvent -ListLog** *                                                                                              | Listar todos los registros disponibles                                |
+| **Get-WinEvent -ListLog** *_SMB_*                                                                                        | Buscar registros por nombre                                           |
+| **Get-WinEvent -LogName** _Security_ [**-MaxEvents** _20_]                                                               | Ver los últimos eventos de un registro                                |
+| **Get-WinEvent -FilterHashtable @{LogName='**_Security_**'; Id=**_4625_**}**                                             | Filtrar por ID de evento                                              |
+| **Get-WinEvent -FilterHashtable @{LogName='**_Security_**'; Id=**_4624,4625_**}**                                        | Filtrar por varios ID                                                 |
+| **Get-WinEvent -FilterHashtable @{LogName='**_Security_**'; Id=**_4625_**; StartTime=(Get-Date).AddMinutes(-**_30_**)}** | Filtrar por ID y por tiempo                                           |
+| **Get-WinEvent -FilterHashtable @{LogName='**_System_**'; Level=**_2_**}**                                               | Filtrar por nivel (1 crítico, 2 error, 3 advertencia)                 |
+| **Get-WinEvent** ... **\| Where-Object {$_.Message -like '***_10.0.0.11_***'}**                                          | Filtrar por texto del mensaje (por ejemplo, una IP de origen)         |
+| **Get-WinEvent** ... **\| Format-List** *                                                                                | Ver el evento completo con todos sus campos                           |
+| **Get-WinEvent** ... **-ComputerName** _DC1_                                                                             | Consultar los eventos de otro equipo                                  |
+| **Get-WinEvent -LogName** '_Microsoft-Windows-SMBServer/Security_'                                                       | Consultar un registro de aplicaciones y servicios                     |
+| **Get-WinEvent -LogName** '_DFS Replication_'                                                                            | Consultar la replicación de SYSVOL (DFSR)                             |
+### auditorías
+
+| Comando                                                                            | Para qué sirve                              |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- |
+| **auditpol /get /category:***                                                      | Ver toda la directiva de auditoría          |
+| **auditpol /get /category:**"_Logon/Logoff_"                                       | Ver una categoría                           |
+| **auditpol /get /subcategory:**"_Credential Validation_"                           | Ver una subcategoría                        |
+| **auditpol /list /subcategory:***                                                  | Listar categorías y subcategorías           |
+| **auditpol /set /subcategory:**"_nombre_" **/success:**{**enable** \| **disable**} | Activar o desactivar la auditoría de éxitos |
+| **auditpol /set /subcategory:**"_nombre_" **/failure:**{**enable** \| **disable**} | Activar o desactivar la auditoría de fallos |
+| **auditpol /set /category:**"_nombre_" **/success:enable /failure:enable**         | Activar una categoría entera                |
+| **auditpol /backup /file:**_C:\ruta\audit.csv_                                     | Guardar una copia de la directiva actual    |
+| **auditpol /restore /file:**_C:\ruta\audit.csv_                                    | Restaurar la copia                          |
+## replicación de ad
+
+| Comando                                                           | Para qué sirve                                      |
+| ----------------------------------------------------------------- | --------------------------------------------------- |
+| **netdom query fsmo**                                             | Ver qué DC tiene cada rol                           |
+| **Get-ADDomain**                                                  | Ver los roles de dominio                            |
+| **repadmin /replsummary**                                         | Resumen de la replicación: deltas y fallos          |
+| **repadmin /showrepl** [_DC_] [**/errorsonly**]                   | Estado de la replicación de entrada por partición   |
+| **repadmin /syncall** [**/AdeP**]                                 | Forzar la replicación con todos los socios          |
+| **repadmin /replicate** _destino_ _origen_ _DC=november,DC=lab_   | Forzar la replicación de una partición entre dos DC |
+| **repadmin /queue**                                               | Ver las replicaciones pendientes                    |
+| **repadmin /showobjmeta** _DC_ "_DN-del-objeto_"                  | Ver qué DC hizo cada cambio en un objeto y cuándo   |
+| **repadmin /kcc**                                                 | Recalcular la topología de replicación              |
+| **Get-ADReplicationPartnerMetadata -Target** _DC2_                | Ver los socios y la última replicación (PowerShell) |
+| **Get-ADReplicationFailure -Target** _DC2_                        | Ver los fallos de replicación (PowerShell)          |
+| **dcdiag /test:**{**replications** \| **dns** \| **sysvolcheck**} | Diagnosticar una parte concreta del DC              |
 
 # proxmox
 ## nodo

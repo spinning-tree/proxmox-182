@@ -72,23 +72,26 @@ Solo registraba los eventos con éxito del 4776. Se activaron las auditorías pa
 
 #### security
 
-|Código|Significado|
-|---|---|
-|4624|Inicio de sesión correcto|
-|4625|Inicio de sesión fallido (en el equipo destino)|
-|4634|Cierre de sesión|
-|4648|Inicio de sesión con credenciales explícitas (runas, unidades con otra cuenta)|
-|4672|Inicio de sesión con privilegios de administrador|
-|4720 / 4726|Usuario creado / eliminado|
-|4722 / 4725|Cuenta habilitada / deshabilitada|
-|4723 / 4724|El usuario cambia su contraseña / un admin la resetea|
-|4728 / 4732 / 4756|Miembro añadido a un grupo global / local de dominio / universal|
-|4740|Cuenta bloqueada (en el PDC)|
-|4767|Cuenta desbloqueada|
-|4768 / 4769|Kerberos: petición de TGT / de ticket de servicio|
-|4771|Fallo de preautenticación Kerberos (en el DC)|
-|4776|Validación NTLM (en el DC)|
-|1102|Log de Security borrado|
+| Código                   | Significado                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------ |
+| 551 (SMBServer/Security) | Fallo de autenticación de sesión SMB                                           |
+| 4604 (DFS Replication)   | SYSVOL inicializado en un DC nuevo                                             |
+| 4624                     | Inicio de sesión correcto                                                      |
+| 4625                     | Inicio de sesión fallido (en el equipo destino)                                |
+| 4634                     | Cierre de sesión                                                               |
+| 4648                     | Inicio de sesión con credenciales explícitas (runas, unidades con otra cuenta) |
+| 4672                     | Inicio de sesión con privilegios de administrador                              |
+| 4720 / 4726              | Usuario creado / eliminado                                                     |
+| 4722 / 4725              | Cuenta habilitada / deshabilitada                                              |
+| 4723 / 4724              | El usuario cambia su contraseña / un admin la resetea                          |
+| 4728 / 4732 / 4756       | Miembro añadido a un grupo global / local de dominio / universal               |
+| 4740                     | Cuenta bloqueada (en el PDC)                                                   |
+| 4767                     | Cuenta desbloqueada                                                            |
+| 4768 / 4769              | Kerberos: petición de TGT / de ticket de servicio                              |
+| 4771                     | Fallo de preautenticación Kerberos (en el DC)                                  |
+| 4776                     | Validación NTLM (en el DC)                                                     |
+| 1102                     | Log de Security borrado                                                        |
+
 
 **Status / Sub Status (4625, 4776)**
 
@@ -419,8 +422,39 @@ Por defecto, **Everyone** tiene permiso **Print**. Se sustituye por un grupo loc
 	- Iniciar sesión con un usuario del departamento y ejecutar `Get-Printer`: debe aparecer `\\DC1\IMP-ECO-01` con **Type: Connection** y **DriverName: Microsoft enhanced Point and Print Compatibility Driver**.
 	- Imprimir una página y comprobar que la cola del servidor queda vacía.
 
+# replicación dc
+Para garantizar una alta disponibilidad, se implementa replicación del controlador de dominio. La idea aquí es que dos DC actúen como dos copias: escribes en cualquiera y el otro se pone al día solo. 
 
+> AD es **multimaestro**: altas, bajas y cambios se hacen desde cualquier DC escribible y se replican al resto.
 
+- Arrancar windows server, configurar ip fija, hostname y DNS preferido (IP de DC1), de lo contrario DC2 no encuentra el dominio y la promoción falla. Comprobar con `ping dominio` y `nsloookup dominio`
+- Instalar el rol AD DS: Administrador del servidor → Agregar roles → Servicios de dominio de Active Directory -> siguiente, siguiente
+- Al terminar, promocionar a DC: Elegir **Agregar un controlador de dominio a un dominio existente** -> Credenciales de un administrador del dominio. (Dejar marcados Servidor DNS y Catálogo global -> Replicar desde: dejar _cualquier DC_ o elegir _DC1_.
 
+> OJO: A la hora de ingresar las credenciales de administrador, utilizar el FQDN (dotted domain\user o bien user@dotted domain). En este ejemplo: november.lab\administrator
 
+- Delegación DNS desmarcada. Instalar desde medios (IFM) desmarcado. Replicar desde: en producción se elige uno concreto (DC cercano o con poca carga). Para este ejemplo, vale cualquier opción.
+
+## próximos pasos
+
+- Comprobar con `net share` que SYSVOL y NETLOGON aparecen, verificar el DNS preferido de DC2 (que sea DC1), y comprobar que las zonas DNS se replicaron correctamente.
+- **DHCP:** en la consola DHCP de DC1 → ámbito → **Opciones de ámbito** → **006 Servidores DNS**. Añadir 10.0.0.11 debajo de 10.0.0.10 y, en un cliente, ejecutar **ipconfig /renew** y luego **ipconfig /all** para que reciba ambos dcs como servidores dns
+
+## dhcp failover
+
+Por defecto, el rol DHCP se queda en dc1. Si queremos que dc2 también actúe como servidor DHCP, configuramos el failover (**TCP 647**).
+
+- **Instalar el rol DHCP en DC2:** luego la bandera amarilla con Completar la configuración de DHCP para crear los grupos de seguridad y autorizar el servidor en AD. (**No crear ningún ámbito en DC2.** Se lo pasa DC1)
+- En la consola DHCP de DC1 -> click derecho en scope (o en ipv4 para incluir todos los ámbitos) -> Configurar Failover -> Servidor asociado: dc2.november.lab -> Nombre de la relación -> MLCT: 1 hora -> Modo: Equilibrio de carga al 50% -> Intervalo -> opcional -> secreto compartido -> Finalizar.
+
+> OJO: Las opciones de ámbito se replican, las de servidor no (hay que configurar a mano). Si modificamos algo -> click derecho en -ambito -> Replicar Failover scopes.
+
+> Sobre el **Switchover Interval**: es el tiempo que espera en _Communication Interrupted_ antes de pasar solo a _Partner Down_. Viene **desactivado** por defecto (si se activa, propone 60 minutos). Mientras está desactivado, el paso a _Partner Down_ es manual.
+
+- Probar en cliente:
+	- `nltest /dsgetdc:november.lab /force` para ver que DC encuentra el cliente
+	- **DNS**: Ojo, nslookup pregunta solo al primer dns y entra en timeout. Mejor usar `Resolve-DnsName` o `ping` con el FQDN.
+	- **DHCP**: `ipconfig /release` y `ipconfig /renew`. Comprobar en DC2 con `Get-DhcpServer4Failover` 
+	- **ADDS**: Crear, modificar o restablecer contraseñas
+	- Al encender DC1, consultar con `repadmin /replsummary` 
 

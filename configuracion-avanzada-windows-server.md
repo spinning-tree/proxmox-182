@@ -136,6 +136,32 @@ Otra cosa:
 8. **Probar desde DC1** (o desde el cliente de administración):
     - `ping PC-01`
     - `\\PC-01\c$` en el Explorador, con una cuenta que sea admin local del equipo.
+
+#### Group Policy Update
+En este caso, habilitaremos una GPO para actualizar las propias GPOS que creemos en el DC, desde el propio `gpmc.msc`(esto es para evitar tener que realizar `gpupdate /force` máquina por máquina)
+
+- Creas la GPO en Equipos, y editar: _Computer Configuration > Policies > Windows Settings > Security Settings > Windows Defender Firewall with Advanced Security > Inbound Rules_.
+- _New Rule_ > **Predefined: Remote Scheduled Tasks Management** > marcar las dos reglas (RPC y RPC-EPMAP) > **Allow the connection**.
+- _New Rule_ > **Predefined: Windows Management Instrumentation (WMI)** > marcar solo **WMI-In** > **Allow the connection**.
+
+> La primera vez hay que actualizar esta gpo máquina por máquina
+
+- Otro método consiste en utilizar la Starter GPO que ya trae las reglas hechas. En `gpmc.msc` -> **Starter GPOs**. Si sale vacío o pide crear la carpeta, pulsar **Create Starter GPOs Folder**. Aparecerán las Starter GPO de sistema, entre ellas _Group Policy Remote Update Firewall Ports_.
+- Clic derecho en **Group Policy Objects** > **New**. Nombre, por ejemplo **EQ_GPUPDATE_REMOTO**. En **Source Starter GPO**, elegir _Group Policy Remote Update Firewall Ports_.
+- Clic derecho en **NOVEMBER > Equipos** > **Link an Existing GPO** > **EQ_GPUPDATE_REMOTO**.
+- Opcional: editar la GPO y comprobar en _Inbound Rules_ que están las tres reglas (las dos de Remote Scheduled Tasks Management y WMI-In).
+
+> En Windows, para entrar por RDP hay que pertenecer al grupo local **Remote Desktop Users** o al de **Administrators** del equipo. Una GPO abre la puerta (firewall y RDP activado), pero no decide quién tiene la llave: eso lo deciden los grupos locales de cada equipo.
+
+1. Editar la GPO > _Computer Configuration > **Preferences** > Control Panel Settings > Local Users and Groups_.
+2. Clic derecho > _New > Local Group_.
+3. **Action: Update**. **Group name**: elegir en el desplegable _Remote Desktop Users (built-in)_.
+4. En **Members** > **Add** > tu grupo de soporte del dominio (por ejemplo `NOVEMBER\`_GG_Soporte_) > **Action: Add to this group**.
+5. **OK**, `gpupdate /force` en un cliente y comprobar con `net localgroup "Remote Desktop Users"` que aparece el grupo.
+
+> Un detalle importante: usa **Update** y no **Replace**. Replace borra todos los miembros actuales del grupo local y deja solo los que pongas en la GPO. Con _Administrators_, ese error te puede dejar sin acceso.
+
+#### 
 ### configuración avanzada gpos
 
 #### Herencia
