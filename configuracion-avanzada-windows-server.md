@@ -75,6 +75,7 @@ Otra cosa:
 ![](https://imgur.com/kq3175G.png)
 
 
+> **Delegation** contiene todos los permisos de una GPO, **Security Filtering** saca de esos permisos quién tiene *Read* and *Apply* (es decir quién puede leer la GPO y se le aplica al mimo tiempo). **Es obligatorio que los Authenticated Users tengan permiso de lectura.**
 ### gpos de grupos
 
 1. **Creamos el grupo.** En dsa.msc, clic derecho en la OU **Grupos** → _New → Group_ → *nombre del grupo*, ámbito **Global**, tipo **Security**.
@@ -160,8 +161,6 @@ En este caso, habilitaremos una GPO para actualizar las propias GPOS que creemos
 5. **OK**, `gpupdate /force` en un cliente y comprobar con `net localgroup "Remote Desktop Users"` que aparece el grupo.
 
 > Un detalle importante: usa **Update** y no **Replace**. Replace borra todos los miembros actuales del grupo local y deja solo los que pongas en la GPO. Con _Administrators_, ese error te puede dejar sin acceso.
-
-#### 
 ### configuración avanzada gpos
 
 #### Herencia
@@ -331,7 +330,6 @@ C:\RECURSOS → \\DC1\RECURSOS (ABE)
 
 5. Repetir los pasos 3 y 4 para `\\DC1\RH` (S:, G_RH) y `\\DC1\OPS` (S:, G_Operaciones).
 6. Una última unidad para `\\DC1\RECURSOS`, letra **R:**, **sin** item-level targeting.
-
 ## redirección de carpetas
 
 Consiste en que Documentos y Escritorio de cada usuario no se guarden en el disco del PC, sino en una carpeta suya del servidor, aunque el usuario las siga viendo en el sitio de siempre. 

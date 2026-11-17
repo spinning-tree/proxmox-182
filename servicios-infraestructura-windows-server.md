@@ -458,3 +458,124 @@ Por defecto, el rol DHCP se queda en dc1. Si queremos que dc2 también actúe co
 	- **ADDS**: Crear, modificar o restablecer contraseñas
 	- Al encender DC1, consultar con `repadmin /replsummary` 
 
+# proteccion de datos
+## shadow copies (instantáneas)
+
+Las **shadow copies** hace fotos programadas de un volumen del servidor. La primera foto marca el estado de partida, y a partir de ahí solo se guardan los bloques que cambian. El usuario recupera él mismo versiones antiguas o archivos borrados desde Previous Versions. 
+
+> Es como un “ctrl + z” a nivel de disco, pero no sustituye a la copia de seguridad: si se pierde el disco, se pierden también las fotos.
+
+1. Abrir el explorador de archivos, ir a **This PC**, hacer clic derecho en el volumen de los datos (C:) y elegir **Configure Shadow Copies...**
+2. Seleccionar el volumen y pulsar **Settings...**:
+    - **Located on this volume:** dejar el mismo volumen.
+    - **Maximum size:** **Use limit**, por ejemplo 2–5 GB en el lab. El mínimo es 300 MB.
+3. Pulsar **Schedule...** y revisar la programación. Por defecto son las 7:00 y las 12:00, de lunes a viernes. En el lab se puede dejar así o añadir otra hora. Aceptar.
+4. Seleccionar el volumen y pulsar **Enable**. Al confirmar se crea la primera instantánea.
+5. Comprobarlo desde PowerShell o CMD como administrador con `vssadmin list shadows`.
+
+![](https://imgur.com/XtUlomm.png)
+
+6. Probar en cliente: crear un archivo de texto, pulsar **create now** en el servidor, luego borrarlo o modificarlo y restaurarlo con click derecho sobre el recurso -> Previous Versions.
+
+![](https://imgur.com/ofPux84.png)
+
+
+> Cuidado con **Restore** sobre una carpeta entera, porque sobrescribe todo su contenido actual. Lo más seguro es **Open** y copiar solo lo que haga falta.
+
+## file server
+
+> Antes de arrancar la VM, añadir en Proxmox un segundo disco (Hardware > Add > Hard Disk, por ejemplo de 20 GB)
+
+![](https://imgur.com/JDMCaa8.png)
+
+- Levantado el servidor, abrir `ncpa.cpl` y definir ip (gateway, dns) y añadir al dominio como una pc cliente
+
+>  En ADUC, crear la OU **Servidores** dentro de NOVEMBER, mover el objeto FS01 desde **Computers** a **Servidores**.
+
+- En FS01, abrir `diskmgmt.msc`, inicializar (online) el disco nuevo en **GPT** y crear un volumen simple NTFS con la letra **D:** y la etiqueta **Datos**.
+
+![](https://imgur.com/JWx6UKX.png)
+
+- Instalar el rol **File Server**, desde Server Manager en FS1
+
+![](https://imgur.com/zQXNCfw.png)
+
+8. Crear `D:\Recursos` con las subcarpetas `Economia` y `Operaciones` -> Propiedades -> Compartir Recursos: **Advanced Sharing**, Authenticated Users con **Change**. 
+9. Permisos NTFS. En Recursos: Authenticated Users con **Read & execute**, **This folder only**. Subcarpetas: quitar la herencia y añadir su DL con **Modify**.
+10. Activar ABE para el recurso compartido en Server Manager.
+11. Probar en cliente
+
+## windows server backup
+Es la herramienta de copias de seguridad que trae Windows Server, y se instala como característica. Puede copiar archivos sueltos, volúmenes enteros, el **System State** (incluye la base de datos de AD y SYSVOL) o  **Bare Metal Recovery** para reconstruir el servidor desde cero. 
+
+Para este caso, configuraremos las copias de seguridad en un servidor de archivos.
+
+- En Proxmox, añadir un disco de 40 GB a FS1 (se puede añadir en caliente)
+
+![](https://imgur.com/xxbllRF.png)
+
+- Abrir `diskmgmt.msc`, poner el disco nuevo **Online** e inicializarlo en **GPT**. No hace falta crear ningún volumen, Windows Server Backup lo formatea.
+- Instalar la característica en los dos servidores: **Add Roles and Features > Features > Windows Server Backup**.
+
+![](https://imgur.com/uE0DI6j.png)
+
+- Abrir Tools -> Windows Server Backup (`wbadmin.msc`) > Local Backup > click derecho -> Backup Schedule -> Full server -> Once a day y una hora -> elegir Back up to a hard disk that is dedicated for backups -> Show All Available Disks -> marcar el disco nuevo y aceptar el aviso de formateo.
+
+> Cuando eliges un disco dedicado, Windows Server Backup lo formatea y **le quita la letra de unidad** para que no aparezca en el explorador. Así ningún usuario ni programa escribe ahí por error, y un malware que recorre las unidades tampoco lo encuentra tan fácilmente.
+
+- Terminar el asistente.
+
+![](https://imgur.com/eOw5HYa.png)
+
+- Para no esperar a las 21:00, lanzar **Backup Once...** > **Scheduled backup options** > **Backup** y esperar a que acabe.
+
+![](https://imgur.com/OcI77FT.png)
+
+- Simular el incidente: borrar `D:\Recursos\Economia` desde PC Cliente con acceso
+- Pulsar **Recover...** > **This server** > fecha de la copia > **Files and folders**, y seleccionar `D:\Recursos\Economia`.
+- Elegir **Original location** y dejar marcado **Restore access control list (ACL) permissions**. Pulsar **Recover**.
+
+![](https://imgur.com/IxJjUum.png)
+
+- Comprobarlo con riri y con chachi: la carpeta vuelve, riri entra y modifica, y chachi no la ve.
+
+## papelera ad
+
+Con la Papelera activada, un objeto borrado se guarda entero (grupos, atributos e incluso la contraseña) durante 180 días en el contenedor **Deleted Objects**. Se activa una vez para todo el bosque, no se puede desactivar y solo protege lo que se borre a partir de ese momento.
+
+A modo de ejemplo, simularemos la eliminación/restauración de un usuario en AD.
+
+- En **Active Directory Administrative Center** (`dsac.exe`) -> seleccionar el dominio -> Panel **Tasks** a la derecha -> **Enable Recycle Bin...** y aceptar el aviso de que es irreversible.
+
+![](https://imgur.com/rSO1lve.png)
+
+- Pulsar **F5**. Si la opción aparece en gris, ya está activada. Si no, esperar a la replicación y refrescar otra vez.
+- Crear un usuario de prueba, por ejemplo `prueba01`, en la OU Usuarios. Añadirlo a un grupo, definir **Description** (para poder comprobar después que vuelve con todo)
+- Borrar `prueba01` desde ADUC.
+- En ADAC, abrir **november (local) > Deleted Objects**. Si no aparece, pulsar F5.
+- Clic derecho en `prueba01` > **Restore**. Lo devuelve a su OU original. **Restore To...** sirve para elegir otra.
+- Comprobar que el usuario vuelve a la OU Usuarios, con la descripción, como miembro del GG de Economía.
+
+> Si alguien borra una OU entera, se restaura primero la OU y luego su contenido: un usuario no puede volver a una OU que no existe.
+## backup gpo
+
+GPMC tiene su propio sistema de copias para las GPO. Guarda en una carpeta las dos partes de cada GPO (la configuración en AD y los archivos de SYSVOL), junto con su security filtering y su delegation. 
+
+> OJO: Lo que **no** guarda son los **vínculos**: esos pertenecen a la OU o al dominio, no a la GPO. Después de restaurar una GPO borrada, hay que volver a vincularla.
+
+
+- Crear una carpeta para las copias, por ejemplo `C:\GPOBackups`, a la que solo tengan acceso los administradores.
+- Abrir `gpmc.msc` > **Group Policy Objects**:
+    - Una GPO: clic derecho en la GPO > **Back Up...** > carpeta y descripción > **Back Up**.
+    - Todas: clic derecho en **Group Policy Objects** > **Back Up All...**
+
+![](https://imgur.com/Tpbd0Mv.png)
+
+- Borrar esa GPO en **Group Policy Objects** (así se eliminan también sus vínculos)
+- En un cliente, ejecutar `gpupdate /force`, cerrar sesión y volver a entrar. Comprobar que no se aplica la GPO.
+- Clic derecho en **Group Policy Objects** > **Manage Backups...**, seleccionar la copia y pulsar **Restore**.
+
+![](https://imgur.com/ivo4Fc0.png)
+
+- Volver a vincularla: clic derecho en la OU > **Link an Existing GPO...** > elegir la GPO restaurada.
+- En el cliente, `gpupdate /force` y volver a iniciar sesión. La unidad vuelve.
