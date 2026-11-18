@@ -579,3 +579,64 @@ GPMC tiene su propio sistema de copias para las GPO. Guarda en una carpeta las d
 
 - Volver a vincularla: clic derecho en la OU > **Link an Existing GPO...** > elegir la GPO restaurada.
 - En el cliente, `gpupdate /force` y volver a iniciar sesión. La unidad vuelve.
+
+# wsus (anillos de parches)
+WSUS (*Windows Server Update Services*) es un servicio que descarga los parches de Microsoft una sola vez y los reparte a los equipos del dominio. Funciona como un almacén central: WSUS se sincroniza con Microsoft Update y mediante GPO, los clientes se apuntan al servidor local en lugar de ir a Internet.
+
+> Los anillos de parches consisten en no parchear todos los equipos a la vez. Primero se parchea un grupo piloto y, si no se rompe nada, el resto.
+
+> OJO: wsus es legacy a partir de 2025. Lo sustituye Windows Update for Business con Intune o Autopatch.
+## cómo funciona
+
+| Paso            | Quién                            | Qué pasa                                                                                                                                                                                                                 |
+| --------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Sincronización  | WSUS ↔ Microsoft Update          | A la hora programada en **Options > Synchronization Schedule**, WSUS descarga los metadatos de los parches nuevos. **No descarga los archivos.**                                                                         |
+| Aprobación      | Administrador o regla automática | Dos formas: automatic approvals o manual. En la primera van las pcs pilotos. En la segunda las pcs produccion. Como configuras aprobación automática, a la hora indicada, wsus descarga metadatos y las actualizaciones. |
+| Búsqueda (scan) | Cliente → WSUS                   | El cliente pregunta "¿qué hay aprobado para mi grupo?". Lo hace solo, cada ~22 h o al arrancar. Los pilotos descargan entonces automáticamente.                                                                          |
+| Descarga        | Cliente ← WSUS                   | El cliente descarga el parche desde el servidor, en segundo plano. No tiene hora fija. Los pilotos descargan solos, los produccion cuando se aprueben                                                                    |
+| Instalación     | Cliente                          | A la hora configurada en la GPO. Si a esa hora aún no lo ha descargado, lo instala al día siguiente.                                                                                                                     |
+
+> **Conclusión**: con sincronización a las 02:00 wsus descarga las actualizaciones. Pasadas 22 horas, los clientes preguntan: los pilotos descargan ahí mismo, los de producción esperan aprobación. Se descarga la actualización en pc client, pero no se actualiza hasta hora programada en GPO.
+
+- **Aprovisionar un disco** con al menos 40 GB libres. Ahí se guardarán los archivos de las actualizaciones. Luego crear la carpeta `U:\WSUS`.
+- **Instalar el rol:** Server Manager > Manage > Add Roles and Features > Windows Server Update Services > Role services: WID Connectivity y WSUS Services > Content location: `U:\WSUS` > Install
+
+> WID es la base de datos interna de Windows y basta para entornos pequeños y medianos.
+
+- **Ejecutar Launch Post-Installation tasks** desde la notificación de Server Manager. Esto crea la base de datos y el sitio de IIS en el puerto 8530.
+- **WSUS Configuration Wizard**: Server Manager -> Tools -> wsus -> Choose Upstream Server: Synchronize from Microsoft Update -> Specify Proxy Server: sin proxy -> Start Connecting -> Choose Languages: _Download updates only in these languages_ > English -> Choose Products: desmarcar todo y marcar solo Windows 11. Incluye x64 y ARM64 -> Choose Classifications: Critical Updates y Security Updates -> Set Sync Schedule: _Synchronize automatically_, una vez al día a las 02:00 -> Marcar Begin initial synchronization y pulsar Finish.
+
+![](https://imgur.com/6vt8vIv.png)
+
+- **Consola de Update Services** -> En Options -> Computers -> **Use Group Policy or registry settings on computers**. Así cada equipo se coloca en su grupo según su GPO.
+
+> Esperar a que actualice. Tarda un poco
+
+![](https://imgur.com/G2kUm0W.png)
+
+- En **Computers > All Computers**, clic derecho > **Add Computer Group**: crear **Piloto** y **Produccion**. Los nombres tienen que coincidir exactamente con los de las GPO.
+- **Crear OUS:** En la OU Grupos, crear dos grupos globales de seguridad: GG_WSUS_PILOTO y GG_WSUS_PRODUCCION, y añadir las cuentas de equipo. Piloto: PC01 y PC03; Producción: PC02 y PC04.
+- **Crear GPOs:** EQ_WSUS_PILOTO y EQ_WSUS_PRODUCCION, ambas vinculadas a la OU Equipos -> Security Filtering: quitar _Authenticated Users_ y añadir el grupo del anillo -> Pestaña Delegation: añadir _Authenticated Users_ con permiso Read. 
+	- Ruta para ambas GPOS: Computer Configuration > Policies > Administrative Templates > Windows Components > Windows Update
+	- Manage updates offered from Windows Server Update Service_ > Specify intranet Microsoft update service location -> `http://fs1.november.lab:8530` en los dos primeros campos
+	- Manage updates offered from Windows Server Update Service > Enable client-side targeting (Piloto o produccion)
+	- Manage end user experience > Configure Automatic Updates 4 > Auto download and schedule the install, Every day, 03:00
+	- Manage end user experience > Turn off auto-restart for updates during active hours -> 8-18
+
+> La cadena es esta: el security filtering aplica la GPO al equipo → la GPO escribe `TargetGroup = Piloto` en el Registro → el cliente le dice a WSUS "soy de Piloto" → WSUS lo coloca en ese grupo. **WSUS no lee AD ni aplica GPO. Solo aplica aprobaciones.**
+
+- **Gestionar aprobaciones automáticas para piloto**: Options > Automatic Approvals > New Rule -> When an update is in a specific classification -> _Set a deadline_ desmarcado -> _any classification_ → Critical Updates y Security Updates -> _all computers_ → Piloto -> nombre, por ejemplo `Auto - Piloto - Criticas y Seguridad`.
+
+![](https://imgur.com/UxDi88B.png)
+
+> Para **Produccion**, a mano, cuando Piloto esté validado: Updates > All Updates > _Approval: Approved_, _Status: Any_ > Refresh > seleccionar los parches > clic derecho > **Approve** > Produccion > **Approved for Install**. 
+
+> Revisar **Supersedence** en los detalles del parche: _Updates superseding this update: None_ → es el más reciente y se aprueba. Desde la 24H2, Windows 11 usa **acumulativas de referencia (checkpoint)**. Si un parche no aparece como reemplazado, no se rechaza: puede ser la base que necesitan los siguientes.
+
+- **Probar en cliente**: Actualizar GPOs (`gpupdate /force`) -> verificar que se aplica la GPO del anillo (`gpresult /r`) -> Verificar que existe la clave `HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate` con los valores `WUServer` y `TargetGroup` -> Settings -> Windows Update -> Check for updates -> En la consola de WSUS, el equipo debe aparecer en su grupo
+
+> Para Produccion, aprobar a mano pasados unos días. En Updates > Security Updates, filtrar por _Approval: Unapproved_ y _Status: Needed_, y luego clic derecho > Approve > Produccion > _Approved for Install_.
+
+![](https://imgur.com/rwMqCja.png)
+
+> Realizar mantenimiento mensual: **Options > Server Cleanup Wizard**. Rechaza las actualizaciones reemplazadas (superseded) y borra archivos sin usar.
