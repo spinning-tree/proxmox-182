@@ -11,6 +11,8 @@
 - **LAPS** (Local Administrator Password Solution) gestiona la contraseña del **administrador local** de cada equipo. Le pone una contraseña aleatoria y distinta en cada PC, la cambia sola cada cierto tiempo (30 días por defecto) y la guarda en AD, en el objeto de equipo. Las IPs no intervienen en nada de esto.
 - **Asistencia Remota de Windows (`msra.exe`)** se inicia la conexión al PC del usuario, él solo pulsa “Aceptar” y ve lo mismo que el técnico. Si le da permiso, puede tomar el control. Se configura por GPO.
 - **Servidor de Impresión**: es un Windows Server que tiene instaladas las impresoras, sus drivers y sus colas. Los clientes no hablan con la impresora: mandan el trabajo al servidor (`\\servidor\impresora`), el servidor lo encola y se lo pasa a la impresora por red.
+- **TPM**: (*Trusted Platform Module*) es un módulo de seguridad del equipo, que puede ser un chip físico o emulado. Guarda y cifra claves, como la de bitlocker.
+- **Bitlocker**: Es una herramienta de cifrado de disco en Windows: windows genera la clave que cifra/descifra el disco -> se la entrega a TPM que la sella y la guarda en disco -> el equipo inicia sin problemas -> el gestor de arranque toma esta clave y se la entrega al TPM -> TPM la descifra y se la entrega a Windows que carga la clave en RAM durante el uptime para cifrar/descifrar.
 # herramientas de diagnóstico y soporte
 
 ## event Viewer
@@ -640,3 +642,40 @@ WSUS (*Windows Server Update Services*) es un servicio que descarga los parches 
 ![](https://imgur.com/rwMqCja.png)
 
 > Realizar mantenimiento mensual: **Options > Server Cleanup Wizard**. Rechaza las actualizaciones reemplazadas (superseded) y borra archivos sin usar.
+
+# bitlocker
+Para este caso, vamos a activar Bitlocker en clientes y activar una GPO vinculada a la OU de Equipos que almacene estas claves de recuperación en el DC.
+
+- Comprobar estado de bitlocker en cliente con `tpm.msc` (o `tpmtool getdeviceinformation`).
+
+![](https://imgur.com/bgDQ0ND.png)
+
+- En DC1 instalar el rol: **Server Manager → Manage → Add Roles and Features** -> **Features** → **Remote Server Administration Tools → Feature Administration Tools → BitLocker Drive Encryption Administration Utilities** → marcar **BitLocker Recovery Password Viewer**
+
+> En un cliente RSAT: **Settings → System → Optional features → Add** → _RSAT: BitLocker Drive Encryption Administration Utilities_.
+
+![](https://imgur.com/ZARvRrv.png)
+
+- En GPMC, crear una GPO en OU Equipos -> **Computer Configuration → Policies → Administrative Templates → Windows Components → BitLocker Drive Encryption → Operating System Drives** -> **Choose how BitLocker-protected operating system drives can be recovered** → _Enabled_: 
+	- _Save BitLocker recovery information to AD DS for operating system drives_
+	- _Store recovery passwords and key packages_
+	- _Do not enable BitLocker until recovery information is stored to AD DS for operating system drives_
+
+> Si algún cliente tiene D:, configurar también el mismo ajuste en **Fixed Data Drives** (_Choose how BitLocker-protected fixed drives can be recovered_)
+
+![](https://imgur.com/QMyVJ2V.png)
+
+- Comprobar en cliente: `gpupdate /force` y comprobar con `gpresult /r /scope computer`.
+- Luego activar BitLocker: **Control Panel → BitLocker Drive Encryption → Turn on BitLocker** -> Guardar la clave -> New encryption mode -> Run Bitlocker system check -> Start Encrypting -> Reiniciar si lo pide.
+
+> El orden importa: si se cifra antes de que la GPO se aplique, la clave no sube a AD.
+
+- Verificar en cliente: `manage-bde -status C:` y luego `manage-bde -protectors -get C:`. Aparecerá **TPM** y **Numerical Password**. 
+
+![](https://imgur.com/YhNjjtZ.png)
+
+- En ADUC, abrir las propiedades del **equipo** → pestaña **BitLocker Recovery**. Comparar los IDs.
+
+> Nota: si un equipo ya estaba cifrado antes de la GPO, la clave no sube sola. Hay que subirla con `manage-bde -protectors -adbackup C: -id {ID}`
+
+![](https://imgur.com/M2UM1Fy.png)

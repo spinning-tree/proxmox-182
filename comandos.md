@@ -173,7 +173,23 @@
 | **Get-ADReplicationPartnerMetadata -Target** _DC2_                | Ver los socios y la última replicación (PowerShell) |
 | **Get-ADReplicationFailure -Target** _DC2_                        | Ver los fallos de replicación (PowerShell)          |
 | **dcdiag /test:**{**replications** \| **dns** \| **sysvolcheck**} | Diagnosticar una parte concreta del DC              |
+## bitlocker
 
+| Comando                                                                      | Para qué sirve                                                                |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **tpmtool getdeviceinformation**                                             | Muestra si hay TPM, versión, fabricante                                       |
+| **manage-bde -status** [_unidad_]                                            | Ver el estado de cifrado, protección y protectores                            |
+| **manage-bde -protectors -get** _unidad_                                     | Listar los protectores con sus ID y la clave de recuperación                  |
+| **manage-bde -on** _unidad_ [**-RecoveryPassword**] [**-UsedSpaceOnly**]     | Activar BitLocker en una unidad                                               |
+| **manage-bde -off** _unidad_                                                 | Desactivar BitLocker y descifrar la unidad                                    |
+| **manage-bde -protectors -delete** _unidad_ **-id** "_{ID}_"                 | Borrar un protector concreto (en PowerShell, el ID entre comillas)            |
+| **manage-bde -protectors -add** _unidad_ {**-tpm** \| **-RecoveryPassword**} | Añadir un protector TPM o una clave de recuperación nueva                     |
+| **manage-bde -protectors -disable** _unidad_ [**-RebootCount** _n_]          | Suspender la protección (_n_ = 0: sin límite; solo en el SO en marcha)        |
+| **manage-bde -protectors -enable** _unidad_                                  | Reanudar la protección                                                        |
+| **manage-bde -unlock** _unidad_ **-RecoveryPassword** _clave_                | Desbloquear una unidad con la clave de recuperación                           |
+| **manage-bde -autounlock -enable** _unidad_                                  | Activar el desbloqueo automático de una unidad de datos                       |
+| **manage-bde -forcerecovery** _unidad_                                       | Forzar el modo recuperación en el siguiente arranque (borra el protector TPM) |
+| **manage-bde -protectors -adbackup** *unidad* **-id** *{ID}*                 | Añadir manualmente la clave a AD                                              |
 # proxmox
 ## nodo
 
