@@ -169,12 +169,12 @@ Si creas una sub-OU dentro de Equipos y modificas la misma GPO, el equipo hereda
 ![](https://imgur.com/6Sbfs1U.png)
 
 #### Block Inheritance
-Se pone en una OU y corta todas las GPOs que vienen de arriba, menos las que están en _Enforced_.
+Se pone en una OU y corta todas las GPOs que vienen de arriba, menos las que están en _Enforced_. En este ejemplo, la sub-OU portátiles, no heredará las GPOs de la OU Equipos que la contiene.
 
 ![](https://imgur.com/WobfoyP.png)
 
 #### Enforced
-Se pone en el vínculo de una GPO (no en la OU), y gana a lo que digan las GPOs de las sub-OUs que haya debajo.
+Se pone en el vínculo de una GPO (no en la OU), y gana a lo que digan las GPOs de las sub-OUs que haya debajo. Aunque la sub-OU tenga block inheritance, esta sí se impone.
 
 ![](https://imgur.com/TcY3E6Q.png)
 

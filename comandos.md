@@ -46,6 +46,7 @@
 | **net session**                                                                                             | Ver quién está conectado a este equipo                                        |
 | **net view** \\_servidor_                                                                                   | Ver los recursos que comparte otro equipo                                     |
 | **net start** \| **net stop** _servicio_                                                                    | Iniciar o detener un servicio                                                 |
+| **Get-NetConnectionProfile**                                                                                | Obtienes dominio, perfil de red, etc.                                         |
 ## red
 
 | Comando                                                                                         | Para qué                                                                                                                              |

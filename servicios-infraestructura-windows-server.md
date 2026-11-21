@@ -679,3 +679,46 @@ Para este caso, vamos a activar Bitlocker en clientes y activar una GPO vinculad
 > Nota: si un equipo ya estaba cifrado antes de la GPO, la clave no sube sola. Hay que subirla con `manage-bde -protectors -adbackup C: -id {ID}`
 
 ![](https://imgur.com/M2UM1Fy.png)
+
+# gpos avanzadas
+
+## bloquear SMB saliente
+Para este caso, la idea es impedir que los equipos de la empresa se conecten a servidores SMB que estén en Internet (puerto 445 TCP saliente).
+
+> Cuando Windows abre una ruta `\\servidor\recurso`, **intenta autenticarse automáticamente** con las credenciales del usuario (NTLM), lo que puede aprovechar un atacante para descifrarlas.
+
+1. **Crear la GPO.** En GPMC, clic derecho sobre la OU de los equipos cliente › _Create a GPO in this domain, and Link it here_ › nombre: `EQ_FW_SMB_SALIENTE`.
+2. **Editar la GPO** _Edit_ › _Computer Configuration › Policies › Windows Settings › Security Settings › Windows Defender Firewall with Advanced Security › Windows Defender Firewall with Advanced Security › Outbound Rules_ › _New Rule_.
+3. **Rule Type:** _Port_.
+4. **Protocol and Ports:** _TCP_, _Specific remote ports_: `445`. En una regla saliente, el puerto que importa es el del destino.
+5. **Action:** _Block the connection_.
+6. **Profile:** marcar _Domain_, _Private_ y _Public_. La protección tiene que seguir activa cuando el portátil sale de la oficina.
+7. **Name:** `Bloquear SMB saliente a Internet`.
+8. **Limitar el destino a Internet.** En las propiedades de la regla › _Scope_ › _Remote IP address_ › _These IP addresses_ › _Add_ › _This IP address range_, añadir estos cuatro rangos:
+    - `0.0.0.0` – `9.255.255.255`
+    - `11.0.0.0` – `172.15.255.255`
+    - `172.32.0.0` – `192.167.255.255`
+    - `192.169.0.0` – `255.255.255.255`
+
+> Es todo el espacio de direcciones excepto los rangos privados (10.x, 172.16–31.x y 192.168.x). 
+    
+9. **Aplicar GPO y comprobar en pc01:**
+```powershell
+gpupdate /force
+Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName "Bloquear SMB saliente a Internet" |
+  Format-Table DisplayName, Enabled, Direction, Action, Profile
+```
+
+11. **Comprobar que el SMB interno sigue funcionando:** abrir `\\dc1\sysvol` desde pc01.
+
+
+------
+
+1. **"He creado una regla y no hace nada".** Configuras la GPO para que no se combine con las reglas locales y ves qué pasa con una regla creada en el cliente. También es troubleshooting.
+2. **"¿Qué está bloqueando el firewall?".** Activas `pfirewall.log` para los paquetes descartados y localizas en el log el bloqueo del caso 2.
+3. **"Solo Helpdesk entra por RDP".** Con User Rights Assignment, el RDP a los clientes queda solo para Helpdesk y los admins, y a los usuarios normales se les deniega el inicio de sesión local en los servidores.
+4. **"Helpdesk necesita ser admin local de los PCs".** Metes un grupo de dominio en el grupo Administrators de los clientes por GPP.
+5. **"Endurecer el inicio de sesión".** Con Security Options configuras el bloqueo por inactividad, el aviso legal, ocultar el último usuario y desactivar SMBv1.
+6. **"A este usuario se le bloquea la cuenta cada mañana".** Activas la auditoría avanzada y sigues la pista del 4740 al 4625 hasta el equipo de origen. Con esto cierras lo pendiente del tema 9.
+
+
