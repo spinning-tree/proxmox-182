@@ -711,14 +711,127 @@ Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName "Bloquear SMB saliente
 
 11. **Comprobar que el SMB interno sigue funcionando:** abrir `\\dc1\sysvol` desde pc01.
 
+## rule merging
+El firewall de cada equipo aplica dos listas de reglas (*ActiveStore*): las **locales** (*PersistentStore*) y las de **GPO** (*RSOP*). El ajuste _Apply local firewall rules_ decide si se aplican las dos o solo las de GPO. 
 
-------
+> Recordar: Bloqueo gana a permiso, y si no hay regla, se aplica la acción por defecto: entrante bloqueado y saliente permitido.
 
-1. **"He creado una regla y no hace nada".** Configuras la GPO para que no se combine con las reglas locales y ves qué pasa con una regla creada en el cliente. También es troubleshooting.
-2. **"¿Qué está bloqueando el firewall?".** Activas `pfirewall.log` para los paquetes descartados y localizas en el log el bloqueo del caso 2.
-3. **"Solo Helpdesk entra por RDP".** Con User Rights Assignment, el RDP a los clientes queda solo para Helpdesk y los admins, y a los usuarios normales se les deniega el inicio de sesión local en los servidores.
-4. **"Helpdesk necesita ser admin local de los PCs".** Metes un grupo de dominio en el grupo Administrators de los clientes por GPP.
-5. **"Endurecer el inicio de sesión".** Con Security Options configuras el bloqueo por inactividad, el aviso legal, ocultar el último usuario y desactivar SMBv1.
-6. **"A este usuario se le bloquea la cuenta cada mañana".** Activas la auditoría avanzada y sigues la pista del 4740 al 4625 hasta el equipo de origen. Con esto cierras lo pendiente del tema 9.
+- En GPMC, editar la GPO › _Computer Configuration › Policies › Windows Settings › Security Settings › Windows Defender Firewall with Advanced Security_.
+- Clic derecho en _Windows Defender Firewall with Advanced Security_ › _Properties_.
+- En la pestaña del perfil (_Domain Profile_, _Private Profile_ o _Public Profile_): _Settings › Customize_ › _Rule merging_ › _Apply local firewall rules_: **No**.
+- En la misma pestaña: State -> Firewall State: On -> Inbound connections: Block -> Outbound connections: Allow.
+
+> Hacer esto para los tres perfiles
+
+![](https://imgur.com/ppvePeI.png)
+
+- Aplicar la directiva con `gpupdate /force`.
+- Comprobar: Crear una regla local (por ejemplo, que permita ping desde cualquier origen) y verifica que existe pero no se aplica.
+## firewall log
+Es un documento que registra paquetes descartados. Se almacena generalmente en `C:\System32\LogFiles\Firewall\pfirewall.log`
+
+> Se configura por perfil. Si solo se activa en Dominio y el equipo cae en Público, no registra nada. Además, el log registre **qué** se bloque, pero no la regla.
+
+Para este caso emplearemos la regla [SMB saliente](servicios-infraestructura-windows-server#bloquear-smb-saliente) implementada anteriormente.
+
+- Editar la GPO -> _Computer Configuration > Policies > Windows Settings > Security Settings > Windows Defender Firewall with Advanced Security_.
+2. Clic derecho en el nodo **Windows Defender Firewall with Advanced Security** > **Properties**.
+3. Pestaña **Domain Profile** > sección **Logging** > **Customize**.
+4. Configurar:
+    - **Name**: dejar la ruta por defecto, `%systemroot%\system32\LogFiles\Firewall\pfirewall.log`. Si se cambia, el servicio del firewall tiene que tener permiso de escritura en la nueva carpeta, y si no lo tiene no se crea el log.
+    - **Size limit (KB)**: `16384`.
+    - **Log dropped packets**: **Yes**.
+    - **Log successful connections**: **No**. (Con Yes el log se llena enseguida y cuesta encontrar nada)
+
+![700](https://imgur.com/a0LNwD1.png)
+
+5. Repetir el paso 4 en las pestañas **Private Profile** y **Public Profile** > **OK**.
+6. En un cliente, ejecutar `gpupdate /force` y comprobar el resultado con `Get-NetFirewallProfile -PolicyStore ActiveStore | Select Name, LogBlocked, LogFileName, LogMaxSizeKilobytes`. 
+
+![](https://imgur.com/HLE254t.png)
+
+7. Provocar el bloqueo del caso 2 desde el cliente: `Test-NetConnection` _IP_externa_ `-Port 445`.
+
+![](https://imgur.com/U4GTzYf.png)
+
+8. Buscarlo en el log desde una consola elevada: `Select-String -Path C:\Windows\System32\LogFiles\Firewall\pfirewall.log -Pattern " 445 "`. Tiene que salir una línea **DROP TCP** con la IP del cliente como origen, el 445 como puerto de destino y **SEND** como dirección.
+
+![](https://imgur.com/twisJNQ.png)
+
+## user rights assignment
+Definen qué puede hacer una cuenta en un equipo: iniciar sesión en local, por RDP, apagarlo, etc. Cada derecho es una lista de usuarios y grupos, locales o de dominio, que se guarda en el propio equipo. 
+
+> Si se define por GPO, la lista **sustituye** a la local, no se suma a ella. **Deny** prevalece sobre **Allow**.
+
+En este caso, limitaremos el acceso por RDP a los administradores del dominio solamente.
+
+1. En un cliente, añadir un usuario normal del dominio al grupo local **Remote Desktop Users** y comprobar que puede entrar por RDP. Así la prueba final demuestra que el derecho manda sobre la pertenencia al grupo.
+2. En GPMC, editar la GPO de administración remota vinculada a la OU de los clientes.
+3. Ir a _Computer Configuration > Policies > Windows Settings > Security Settings > Local Policies > User Rights Assignment_.
+4. Abrir **Allow log on through Remote Desktop Services** > marcar **Define these policy settings** > **Add User or Group**:
+    - `Administrators`
+5. **OK** y cerrar el editor.
+
+![](https://imgur.com/NexMNCQ.png)
+
+6. En el cliente: `gpupdate /force`.
+7. Comprobar en el cliente con `secpol.msc` > _User Rights Assignment_: el derecho aparece en gris con solo esos dos grupos.
+8. Probar por RDP:
+    - Con el usuario normal del paso 1 → rechazado (_the user account is not authorized for remote login_).
+    - Con un miembro de Administrators → entra.
+
+![](https://imgur.com/y9AL6wF.png)
+
+
+## administradores locales
+Es una buena práctica meter en el grupo de administradores locales a los técnicos administradores del dominio. De esta manera los técnicos son administradores en todos los PCs sin tener que tocarlos uno a uno ni conocer la contraseña de LAPS. 
+
+En este caso, crearemos un grupo G_Helpdesk, y lo añadiremos por AGDLP al grupo de administradores locales con GPP.
+
+1. En la OU de grupos: **New > Group** > `G_Helpdesk_Admins`, ámbito **Global**, tipo **Security** -> añadimos miembros (adm-nix)
+2. **New > Group** > `DL_PC_Admins`, ámbito **Domain local**, tipo **Security**. _Members_: `G_Helpdesk_Admins`.
+
+![](https://imgur.com/UVow1C3.png)
+
+3. En GPMC, clic derecho en la OU de los equipos > **Create a GPO in this domain, and Link it here** > `EQ_Admins_Locales`.
+4. Editar > _Computer Configuration > Preferences > Control Panel Settings > Local Users and Groups_ > **New > Local Group**.
+5. Configurar:
+    - **Action**: Update.
+    - **Group name**: `Administrators (built-in)`, elegir en el desplegable.
+    - **Delete all member users** y **Delete all member groups**: sin marcar. Si los marcas, se vacía el grupo y se pierden Domain Admins y la cuenta de LAPS.
+    - **Add** > `NOVEMBER\DL_PC_Admins` > acción **Add to this group** > OK.
+
+![](https://imgur.com/YUnSdS6.png)
+
+6. En PC-01: `gpupdate /force` y luego `net localgroup Administrators`. Debe aparecer `NOVEMBER\DL_PC_Admins`.
+7. Pruebas:
+    - RDP a PC-01 con `adm-nix` → entra, porque tiene el derecho por ser de Administrators. Dentro, `whoami /groups` 
+    - Debe mostrar `BUILTIN\Administrators`.
+
+
+![](https://imgur.com/17qPKgz.png)
+
+# security options
+Se trata de los ajustes de seguridad de cada equipo: cómo se comporta la pantalla de inicio de sesión, qué protocolos antiguos se permiten, qué pasa si dejas el equipo desatendido.
+
+> Están en la misma GPO que los derechos de usuario (_Local Policies > Security Options_). 
+
+Para este caso, configuraremos el bloqueo por inactividad, un mensaje de bienvenida antes de iniciar sesión, que la pantalla no muestre quién fue el último que inició sesión, y desactivaremos SMBv1.
+
+1. En GPMC, clic derecho en la OU **Equipos** > **Create a GPO in this domain, and Link it here** > `EQ_Seguridad_Base`.
+2. Editar > _Computer Configuration > Policies > Windows Settings > Security Settings > Local Policies > **Security Options**_.
+	- **Interactive logon: Machine inactivity limit** > `900` segundos (15 minutos). Para la prueba puedes poner `60` y subirlo después.
+	- **Interactive logon: Message title for users attempting to log on** > por ejemplo, `Aviso legal`.
+	- **Interactive logon: Message text for users attempting to log on** > por ejemplo, `Este equipo es propiedad de November. Su uso está restringido a personal autorizado y puede ser monitorizado.`
+	- **Interactive logon: Don't display last signed-in** > **Enabled**.
+
+![](https://imgur.com/kOgnqZB.png)
+
+- Comprobar en cliente con `gpupdate /force`
+
+![](https://imgur.com/CniXG4b.png)
+
+
+
 
 

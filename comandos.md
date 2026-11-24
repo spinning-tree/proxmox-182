@@ -116,6 +116,18 @@
 | **gpresult** [**/user** _DOMINIO\usuario_] **/h** _informe.html_ [**/f**]                     | Informe completo en HTML; /user elige el usuario y /f sobrescribe el archivo                                                                   |
 | **gpresult /v**                                                                               | Detalle verbose en la consola (ajustes que ganaron)                                                                                            |
 | **gpresult /z**                                                                               | Detalle super-verbose en la consola (ajustes que ganaron y los que perdieron)                                                                  |
+## firewall
+
+| Comando                                                                                                                                      | Para qué sirve                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **wf.msc**                                                                                                                                   | Abrir la consola del firewall con seguridad avanzada (reglas locales)              |
+| **Get-NetFirewallRule -PolicyStore PersistentStore -DisplayName** _"nombre"_ **[-Enable {True \| False}**]                                   | Ver si la regla existe en el almacén local del equipo y está habilitada            |
+| **Get-NetFirewallRule -PolicyStore RSOP** **[-Enable {True \| False}**                                                                       | Ver solo las reglas que llegan por GPO                                             |
+| **Get-NetFirewallRule -PolicyStore ActiveStore -DisplayName** _"nombre"_                                                                     | Ver si la regla se aplica y, si no, por qué (`EnforcementStatus`) y de dónde viene |
+| **Get-NetFirewallRule -PolicyStore ActiveStore -DisplayGroup** _"grupo"_                                                                     | Ver un grupo predefinido (_"Remote Desktop"_, _"File and Printer Sharing"_)        |
+| **Get-NetFirewallRule -PolicyStore ActiveStore -Enabled True -Direction** {**Inbound** \| **Outbound**} **-Action** {**Allow** \| **Block**} | Quedarse solo con las reglas habilitadas de un sentido y una acción                |
+| **Get-NetFirewallProfile -PolicyStore ActiveStore \| Format-Table Name, AllowLocalFirewallRules**                                            | Ver, por perfil, si se aplican las reglas locales                                  |
+| **Get-NetConnectionProfile**                                                                                                                 | Ver en qué perfil está el equipo (Domain, Private o Public)                        |
 ## laps
 
 | Comando                                                                                       | Para qué sirve                                                                                         |

@@ -4,7 +4,7 @@
 
 | Campo              | Valor                            |
 | ------------------ | -------------------------------- |
-| Ticket             | TS-009                           |
+| Ticket             | TS-012                           |
 | Tipo               | Incidencia                       |
 | Categoría          | Red > DHCP / Firewall de Windows |
 | Urgencia / Impacto | Alta / Bajo (un equipo)          |
