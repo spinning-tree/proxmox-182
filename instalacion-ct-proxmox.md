@@ -32,7 +32,7 @@
 > Se pueden añadir más discos con **Add**, pero no hace falta para este caso.
 - **Storage:** local-lvm. Es el almacenamiento LVM-thin del host, donde se guardan los discos de VMs y CTs. 
 > Con _thin provisioning_, el volumen solo ocupa espacio real a medida que se escriben datos.
-- **Disk size (GiB):** Para un sistema funcional 2GB es mínimo recomendable.
+- **Disk size (GiB):** Para un sistema funcional 8GB es mínimo recomendable.
 - **Resto de opciones** (mount options, ACLs, quota): por defecto. Son ajustes avanzados de montaje y control de espacio que no se necesitan aquí.
 
 **Paso 5. Pestaña CPU**

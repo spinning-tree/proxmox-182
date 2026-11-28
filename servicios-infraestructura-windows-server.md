@@ -90,7 +90,9 @@ Solo registraba los eventos con éxito del 4776. Se activaron las auditorías pa
 | 4740                     | Cuenta bloqueada (en el PDC)                                                   |
 | 4767                     | Cuenta desbloqueada                                                            |
 | 4768 / 4769              | Kerberos: petición de TGT / de ticket de servicio                              |
+| 4770                     | Renovación de ticket de servicio Kerberos                                      |
 | 4771                     | Fallo de preautenticación Kerberos (en el DC)                                  |
+| 4772/4773                | Fallo al pedir TGT/ticket de servicio                                          |
 | 4776                     | Validación NTLM (en el DC)                                                     |
 | 1102                     | Log de Security borrado                                                        |
 
@@ -835,3 +837,86 @@ Para este caso, configuraremos el bloqueo por inactividad, un mensaje de bienven
 
 
 
+
+---
+
+
+**A. Comprobar la política de bloqueo**
+
+1. En el DC o con RSAT, en PowerShell: `Get-ADDefaultDomainPasswordPolicy`. Fíjate en `LockoutThreshold`, `LockoutDuration` y `LockoutObservationWindow`.
+2. Si `LockoutThreshold` es 0, no hay bloqueo. En GPMC → _Default Domain Policy_ → Editar → _Configuración del equipo_ → _Directivas_ → _Configuración de Windows_ → _Configuración de seguridad_ → _Directivas de cuenta_ → _Directiva de bloqueo de cuenta_:
+    - Umbral de bloqueo: 3 intentos.
+    - Duración del bloqueo: 15 minutos.
+    - Restablecer contador: 15 minutos.
+3. Aplicarlo con `gpupdate /force` en el DC y repetir el paso 1 para confirmar.
+4. Comprobar que no haya una FGPP que lo pise: `Get-ADFineGrainedPasswordPolicy -Filter *`. Si hay una que aplique al usuario de prueba, manda ella.
+
+**B. Comprobar la auditoría**
+
+5. En el DC: `auditpol /get /subcategory:"User Account Management","Kerberos Authentication Service"`. Los eventos 4740 y 4771 salen de ahí, y deben tener auditados _Success_ y _Failure_ respectivamente. Corrección a lo que dije antes: el 4740 no depende de la subcategoría _Account Lockout_, sino de _User Account Management_.
+6. En el cliente donde irá la tarea: `auditpol /get /subcategory:"Logon"` y comprobar que audita _Failure_.
+
+**C. Crear el usuario**
+
+7. `New-ADUser -Name "usr.lockout" -SamAccountName usr.lockout -UserPrincipalName usr.lockout@november.lab -AccountPassword (Read-Host -AsSecureString) -Enabled $true`
+
+**D. Crear la tarea en el cliente**
+
+8. Crear la carpeta `C:\Temp`. Abrir el Programador de tareas → _Crear tarea_ (no la básica).
+9. Pestaña _General_: nombre `TareaOlvidada`, _Ejecutar tanto si el usuario inició sesión como si no_. En _Cambiar usuario o grupo_, indicar `NOVEMBER\usr.lockout`.
+10. Pestaña _Desencadenadores_: nuevo → Diariamente, repetir cada 1 minuto, indefinidamente.
+11. Pestaña _Acciones_: programa `cmd.exe`, argumentos `/c echo ok >> C:\Temp\tarea.log`.
+12. Aceptar e introducir la contraseña del usuario cuando la pida.
+13. **Validar antes de seguir.** Ejecutar la tarea a mano y comprobar que `tarea.log` se crea y que _Último resultado_ es `0x0`. Si da un error de tipo de inicio de sesión (`0x80070569`), a la cuenta le falta el derecho _Iniciar sesión como trabajo por lotes_; añadirlo en la directiva local del cliente.
+
+**E. Provocar el bloqueo**
+
+14. Sin tocar la tarea, restablecer la contraseña desde ADUC (sin marcar _Desbloquear la cuenta_ ni _El usuario debe cambiar la contraseña_), o con `Set-ADAccountPassword -Identity usr.lockout -Reset -NewPassword (Read-Host -AsSecureString)`.
+15. Esperar 3-4 minutos (umbral de 3 × intervalo de 1 minuto).
+16. Comprobar el bloqueo: `Get-ADUser usr.lockout -Properties LockedOut,LockoutTime | Select Name,LockedOut,LockoutTime`.
+
+A partir de ahí, la investigación es tuya: no desbloquees la cuenta ni abras el Programador de tareas del cliente todavía. Si desbloqueas antes de arreglar el origen, la tarea volverá a bloquearla en pocos minutos, lo que sirve para comprobar que la solución es correcta.
+
+No, redacta los pasos pero asume que no he hecho nada de lo previo
+
+**A. Auditoría en los DC**
+
+1. En GPMC, editar _Default Domain Controllers Policy_ → _Configuración del equipo_ → _Directivas_ → _Configuración de Windows_ → _Configuración de seguridad_ → _Configuración de directiva de auditoría avanzada_ → _Directivas de auditoría_:
+    - _Administración de cuentas_ → _Auditar administración de cuentas de usuario_: Correcto y Error.
+    - _Inicio de sesión de cuenta_ → _Auditar servicio de autenticación Kerberos_: Correcto y Error.
+    - _Inicio de sesión de cuenta_ → _Auditar validación de credenciales_: Error (cubre los intentos por NTLM).
+2. En la misma directiva, _Directivas locales_ → _Opciones de seguridad_ → _Auditoría: forzar la configuración de subcategorías de la directiva de auditoría..._: Habilitada. Así la auditoría básica heredada no pisa la avanzada.
+3. En el DC: `gpupdate /force` y comprobar con `auditpol /get /subcategory:"User Account Management","Kerberos Authentication Service","Credential Validation"`.
+
+**B. Política de bloqueo**
+
+4. En PowerShell: `Get-ADDefaultDomainPasswordPolicy` y revisar `LockoutThreshold`. Si es 0, no hay bloqueo.
+5. Editar _Default Domain Policy_ → _Configuración del equipo_ → _Directivas_ → _Configuración de Windows_ → _Configuración de seguridad_ → _Directivas de cuenta_ → _Directiva de bloqueo de cuenta_:
+    - Umbral de bloqueo: 3.
+    - Duración del bloqueo: 15 minutos.
+    - Restablecer contador: 15 minutos.
+6. `gpupdate /force` en el DC y repetir el paso 4 para confirmar.
+7. Comprobar que ninguna FGPP pise el valor: `Get-ADFineGrainedPasswordPolicy -Filter *`.
+
+**C. Usuario de prueba**
+
+8. `New-ADUser -Name "usr.lockout" -SamAccountName usr.lockout -UserPrincipalName usr.lockout@november.lab -AccountPassword (Read-Host -AsSecureString) -Enabled $true`
+
+**D. Cliente**
+
+9. En un cliente unido al dominio, auditar los fallos de inicio de sesión: `auditpol /set /subcategory:"Logon" /failure:enable` (consola elevada).
+10. Crear `C:\Temp`.
+11. Abrir el Programador de tareas → _Crear tarea_ (no la básica).
+12. Pestaña _General_: nombre `TareaOlvidada`, _Ejecutar tanto si el usuario inició sesión como si no_, y en _Cambiar usuario o grupo_ indicar `NOVEMBER\usr.lockout`.
+13. Pestaña _Desencadenadores_: nuevo → Diariamente, repetir cada 1 minuto, indefinidamente.
+14. Pestaña _Acciones_: programa `cmd.exe`, argumentos `/c echo ok >> C:\Temp\tarea.log`.
+15. Aceptar e introducir la contraseña del usuario.
+16. Validar: ejecutar la tarea a mano, comprobar que `tarea.log` se crea y que _Último resultado_ es `0x0`. Si aparece `0x80070569`, falta el derecho _Iniciar sesión como trabajo por lotes_ para ese usuario en la directiva local del cliente.
+
+**E. Provocar el bloqueo**
+
+17. Sin tocar la tarea, restablecer la contraseña desde ADUC (sin marcar _Desbloquear la cuenta_ ni _El usuario debe cambiar la contraseña_), o con `Set-ADAccountPassword -Identity usr.lockout -Reset -NewPassword (Read-Host -AsSecureString)`.
+18. Esperar 3-4 minutos.
+19. Comprobar: `Get-ADUser usr.lockout -Properties LockedOut,LockoutTime | Select Name,LockedOut,LockoutTime`.
+
+La investigación empieza aquí, sin desbloquear la cuenta ni abrir el Programador de tareas del cliente. Si desbloqueas antes de corregir el origen, la tarea volverá a bloquearla en pocos minutos, lo que sirve luego para validar la solución.
